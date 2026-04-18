@@ -77,7 +77,8 @@ fn reverse_lookup_blocking(ip: &str) -> String {
             return ip.to_string();
         };
 
-        let mut host = [0i8; 256];
+        // libc::c_char is i8 on x86_64 and u8 on aarch64 - use the alias to stay portable.
+        let mut host = [0 as libc::c_char; 256];
 
         let ret = match addr {
             IpAddr::V4(v4) => {
@@ -150,7 +151,7 @@ fn reverse_lookup_blocking(ip: &str) -> String {
 unsafe fn call_getnameinfo(
     sa: *const libc::sockaddr,
     sa_len: libc::socklen_t,
-    host: &mut [i8; 256],
+    host: &mut [libc::c_char; 256],
 ) -> libc::c_int {
     unsafe {
         libc::getnameinfo(

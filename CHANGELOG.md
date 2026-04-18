@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-04-18
+
+### Fixed
+
+- Build failure on `aarch64-unknown-linux-gnu`: replaced hard-coded `[i8; 256]`
+  hostname buffer in `src/dns.rs` with `[libc::c_char; 256]`. `c_char` is `i8`
+  on x86_64 but `u8` on aarch64, breaking the `getnameinfo` call signature on
+  ARM64 Linux.
+
 ## [0.1.0] - 2026-04-18
 
 Initial release.
