@@ -15,25 +15,31 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
+        rust: [stable, "1.88"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
 
       - name: fmt
+        if: matrix.rust == 'stable'
         run: cargo fmt --all -- --check
 
       - name: clippy
+        if: matrix.rust == 'stable'
         run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: test
         run: cargo test --all-features
 
       - name: doc
+        if: matrix.rust == 'stable'
         run: cargo doc --no-deps --all-features
 
       - name: build (release)
+        if: matrix.rust == 'stable'
         run: cargo build --release --all-features

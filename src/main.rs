@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use netls::{watch::WatchOutput, Filter};
+use netls::{Filter, watch::WatchOutput};
 
 #[cfg(unix)]
 use std::process;
@@ -387,12 +387,11 @@ fn is_ephemeral(port: u16) -> bool {
 }
 
 fn stable_addr(addr: &str) -> String {
-    if let Some((host, port)) = addr.rsplit_once(':') {
-        if let Ok(p) = port.parse::<u16>() {
-            if is_ephemeral(p) {
-                return format!("{host}:*");
-            }
-        }
+    if let Some((host, port)) = addr.rsplit_once(':')
+        && let Ok(p) = port.parse::<u16>()
+        && is_ephemeral(p)
+    {
+        return format!("{host}:*");
     }
     addr.to_string()
 }
@@ -566,7 +565,9 @@ fn main() -> Result<()> {
                 .filter(|c| c.state == Some(netls::State::TimeWait))
                 .count();
             if tw >= threshold {
-                eprintln!("WARNING: {tw} TIME_WAIT connections (threshold: {threshold}). Check keep-alive settings or ephemeral port exhaustion.");
+                eprintln!(
+                    "WARNING: {tw} TIME_WAIT connections (threshold: {threshold}). Check keep-alive settings or ephemeral port exhaustion."
+                );
             }
         }
         return Ok(());

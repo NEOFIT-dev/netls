@@ -1,6 +1,6 @@
 use crossterm::{
     execute,
-    terminal::{disable_raw_mode, LeaveAlternateScreen},
+    terminal::{LeaveAlternateScreen, disable_raw_mode},
 };
 use std::io;
 

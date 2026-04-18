@@ -60,10 +60,10 @@ fn macos_cmdline(pid: u32) -> Option<String> {
             while pos < buf.len() && buf[pos] != 0 {
                 pos += 1;
             }
-            if let Ok(s) = std::str::from_utf8(&buf[start..pos]) {
-                if !s.is_empty() {
-                    args.push(s.to_string());
-                }
+            if let Ok(s) = std::str::from_utf8(&buf[start..pos])
+                && !s.is_empty()
+            {
+                args.push(s.to_string());
             }
             pos += 1;
         }

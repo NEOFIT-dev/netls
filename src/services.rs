@@ -51,10 +51,9 @@ pub fn annotate_addr(addr: &str) -> String {
     if let Some(port) = addr
         .rsplit_once(':')
         .and_then(|(_, p)| p.parse::<u16>().ok())
+        && let Some(name) = lookup(port)
     {
-        if let Some(name) = lookup(port) {
-            return format!("{addr} ({name})");
-        }
+        return format!("{addr} ({name})");
     }
     addr.to_string()
 }

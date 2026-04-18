@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
-use crate::{compact_addr, Connection, Error, Proto, Result, State};
+use crate::{Connection, Error, Proto, Result, State, compact_addr};
 
 // ── Public entry point ────────────────────────────────────────────────────────
 
@@ -213,14 +213,14 @@ pub(crate) fn build_inode_pid_map() -> Result<HashMap<u64, (u32, String)>> {
 
             // Symlink target looks like: socket:[12345]
             let t = target.to_string_lossy();
-            if let Some(inode_str) = t.strip_prefix("socket:[").and_then(|s| s.strip_suffix(']')) {
-                if let Ok(inode) = inode_str.parse::<u64>() {
-                    // First PID that owns the inode wins
-                    map.entry(inode).or_insert_with(|| {
-                        let comm = read_comm(pid);
-                        (pid, comm)
-                    });
-                }
+            if let Some(inode_str) = t.strip_prefix("socket:[").and_then(|s| s.strip_suffix(']'))
+                && let Ok(inode) = inode_str.parse::<u64>()
+            {
+                // First PID that owns the inode wins
+                map.entry(inode).or_insert_with(|| {
+                    let comm = read_comm(pid);
+                    (pid, comm)
+                });
             }
         }
     }

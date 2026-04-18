@@ -6,20 +6,20 @@ use anyhow::Result;
 use crossterm::{
     event::{self, Event, KeyCode, KeyModifiers},
     execute,
-    terminal::{enable_raw_mode, EnterAlternateScreen},
+    terminal::{EnterAlternateScreen, enable_raw_mode},
 };
 use ratatui::{
+    Frame, Terminal,
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState},
-    Frame, Terminal,
 };
 
 use crate::{
-    diff_connections, format_process_text, snapshot, tui_common::TerminalGuard, Connection, Filter,
-    State, NO_PERMISSION,
+    Connection, Filter, NO_PERMISSION, State, diff_connections, format_process_text, snapshot,
+    tui_common::TerminalGuard,
 };
 
 const REFRESH_SECS: u64 = 2;
@@ -130,42 +130,42 @@ fn run_loop(
         terminal.draw(|f| draw(f, &mut app))?;
 
         // Poll events with a short timeout so refresh still happens
-        if event::poll(Duration::from_millis(100))? {
-            if let Event::Key(key) = event::read()? {
-                if app.filter_mode {
-                    match key.code {
-                        KeyCode::Esc => {
-                            app.filter_mode = false;
-                            app.filter_input.clear();
-                        }
-                        KeyCode::Enter => {
-                            app.filter_mode = false;
-                        }
-                        KeyCode::Backspace => {
-                            app.filter_input.pop();
-                        }
-                        KeyCode::Char(c) => {
-                            app.filter_input.push(c);
-                        }
-                        _ => {}
+        if event::poll(Duration::from_millis(100))?
+            && let Event::Key(key) = event::read()?
+        {
+            if app.filter_mode {
+                match key.code {
+                    KeyCode::Esc => {
+                        app.filter_mode = false;
+                        app.filter_input.clear();
                     }
-                } else {
-                    match (key.code, key.modifiers) {
-                        (KeyCode::Char('q'), _) | (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
-                            return Ok(())
-                        }
-                        (KeyCode::Down | KeyCode::Char('j'), _) => app.select_next(),
-                        (KeyCode::Up | KeyCode::Char('k'), _) => app.select_prev(),
-                        (KeyCode::Char('/'), _) => {
-                            app.filter_mode = true;
-                            app.filter_input.clear();
-                        }
-                        (KeyCode::Esc, _) => {
-                            app.filter_input.clear();
-                        }
-                        (KeyCode::Char('r'), _) => app.refresh()?,
-                        _ => {}
+                    KeyCode::Enter => {
+                        app.filter_mode = false;
                     }
+                    KeyCode::Backspace => {
+                        app.filter_input.pop();
+                    }
+                    KeyCode::Char(c) => {
+                        app.filter_input.push(c);
+                    }
+                    _ => {}
+                }
+            } else {
+                match (key.code, key.modifiers) {
+                    (KeyCode::Char('q'), _) | (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
+                        return Ok(());
+                    }
+                    (KeyCode::Down | KeyCode::Char('j'), _) => app.select_next(),
+                    (KeyCode::Up | KeyCode::Char('k'), _) => app.select_prev(),
+                    (KeyCode::Char('/'), _) => {
+                        app.filter_mode = true;
+                        app.filter_input.clear();
+                    }
+                    (KeyCode::Esc, _) => {
+                        app.filter_input.clear();
+                    }
+                    (KeyCode::Char('r'), _) => app.refresh()?,
+                    _ => {}
                 }
             }
         }

@@ -653,16 +653,16 @@ pub fn snapshot_with_containers(filter: &Filter) -> Result<Vec<Connection>> {
     let port_map = docker::container_published_ports();
     if !port_map.is_empty() {
         for c in conns.iter_mut() {
-            if let Some(port) = extract_port(&c.local) {
-                if let Some(name) = port_map.get(&port) {
-                    c.container = Some(name.clone());
-                    continue;
-                }
+            if let Some(port) = extract_port(&c.local)
+                && let Some(name) = port_map.get(&port)
+            {
+                c.container = Some(name.clone());
+                continue;
             }
-            if let Some(port) = extract_port(&c.remote) {
-                if let Some(name) = port_map.get(&port) {
-                    c.container = Some(name.clone());
-                }
+            if let Some(port) = extract_port(&c.remote)
+                && let Some(name) = port_map.get(&port)
+            {
+                c.container = Some(name.clone());
             }
         }
     }
@@ -757,17 +757,16 @@ fn apply_filter(connections: Vec<Connection>, filter: &Filter) -> Vec<Connection
             if filter.ipv6_only && (!is_ipv6_addr(&c.local) || c.proto == Proto::Unix) {
                 return false;
             }
-            if let Some(port) = filter.port {
-                if !c.local.ends_with(&format!(":{port}"))
-                    && !c.remote.ends_with(&format!(":{port}"))
-                {
-                    return false;
-                }
+            if let Some(port) = filter.port
+                && !c.local.ends_with(&format!(":{port}"))
+                && !c.remote.ends_with(&format!(":{port}"))
+            {
+                return false;
             }
-            if let Some(pid) = filter.pid {
-                if c.pid != Some(pid) {
-                    return false;
-                }
+            if let Some(pid) = filter.pid
+                && c.pid != Some(pid)
+            {
+                return false;
             }
             if let Some(ref name) = filter.process {
                 match &c.process {
@@ -775,10 +774,10 @@ fn apply_filter(connections: Vec<Connection>, filter: &Filter) -> Vec<Connection
                     _ => return false,
                 }
             }
-            if let Some(ref proto) = filter.proto {
-                if c.proto.to_string() != *proto {
-                    return false;
-                }
+            if let Some(ref proto) = filter.proto
+                && c.proto.to_string() != *proto
+            {
+                return false;
             }
             if let Some(ref state) = filter.state {
                 match &c.state {

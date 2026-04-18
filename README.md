@@ -28,7 +28,7 @@
 
 ## Installation
 
-Requires Rust 1.85 or newer.
+Requires Rust 1.88 or newer.
 
 ```bash
 cargo install netls

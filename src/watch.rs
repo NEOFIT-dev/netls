@@ -7,13 +7,13 @@ use crossterm::{
     cursor::MoveTo,
     event::{self, Event, KeyCode, KeyModifiers},
     execute,
-    terminal::{enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
+    terminal::{Clear, ClearType, EnterAlternateScreen, enable_raw_mode},
 };
 use owo_colors::OwoColorize;
 
 use crate::{
-    diff_connections, format_process_text, resolve_proxy_origins, snapshot, snapshot_all,
-    snapshot_with_containers, tui_common::TerminalGuard, Connection, Filter,
+    Connection, Filter, diff_connections, format_process_text, resolve_proxy_origins, snapshot,
+    snapshot_all, snapshot_with_containers, tui_common::TerminalGuard,
 };
 
 // ── Entry point ───────────────────────────────────────────────────────────────

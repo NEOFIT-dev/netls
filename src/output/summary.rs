@@ -1,4 +1,4 @@
-use crate::{summary, top_connections, Connection};
+use crate::{Connection, summary, top_connections};
 
 pub fn print(conns: &[Connection]) {
     let s = summary(conns);

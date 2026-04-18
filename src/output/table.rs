@@ -5,14 +5,14 @@ use owo_colors::OwoColorize;
 use std::collections::HashMap;
 use std::io::IsTerminal;
 use tabled::builder::Builder;
-use tabled::settings::object::Columns;
-use tabled::settings::width::Truncate;
 use tabled::settings::Modify;
 use tabled::settings::Style;
+use tabled::settings::object::Columns;
+use tabled::settings::width::Truncate;
 
 use crate::{
-    fmt_age, format_process_text, resolve_docker_name, resolve_proxy_origins, services,
-    snapshot_all, Connection, State, NO_PERMISSION,
+    Connection, NO_PERMISSION, State, fmt_age, format_process_text, resolve_docker_name,
+    resolve_proxy_origins, services, snapshot_all,
 };
 
 // ── Options ───────────────────────────────────────────────────────────────────
