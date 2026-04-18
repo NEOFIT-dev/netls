@@ -18,11 +18,15 @@ use crate::{
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
+/// Output style for the [`run`] watch loop.
+#[allow(missing_docs)]
 pub enum WatchOutput {
     Table,
     Json,
 }
 
+/// Launch the live `--watch` loop. Refreshes every `interval_secs` and
+/// renders the diff between successive snapshots. Blocks until interrupted.
 pub fn run(
     filter: &Filter,
     interval_secs: u64,

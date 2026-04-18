@@ -1,5 +1,6 @@
 use crate::{Connection, summary, top_connections};
 
+/// Print a per-protocol/state summary of `conns` to stdout (`--summary`).
 pub fn print(conns: &[Connection]) {
     let s = summary(conns);
     println!(
@@ -13,6 +14,7 @@ pub fn print(conns: &[Connection]) {
     println!("Total: {}", conns.len());
 }
 
+/// Print the top `n` processes by connection count to stdout (`--top N`).
 pub fn print_top(conns: &[Connection], n: usize) {
     let top = top_connections(conns, n);
     if top.is_empty() {

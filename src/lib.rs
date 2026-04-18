@@ -1,10 +1,27 @@
+#![warn(missing_docs)]
+
+//! `netls` is a network connections viewer for daily use and automation.
+//!
+//! This crate exposes the same functionality as the `netls` CLI tool through
+//! a programmatic API. The entry points are [`snapshot`] (gathered with a
+//! [`Filter`]) and the various `enrich_*` functions that populate optional
+//! fields on each [`Connection`].
+
+/// Reverse-DNS resolution helpers.
 pub mod dns;
+/// Docker container metadata for connection enrichment.
 pub mod docker;
+/// Output renderers (table, JSON, CSV, summary, grouped).
 pub mod output;
+/// Per-platform connection collection (Linux `/proc`, macOS `libproc`).
 pub mod platform;
+/// Well-known port → service-name lookups (`/etc/services` plus a builtin map).
 pub mod services;
+/// Interactive `--tui` mode.
 pub mod tui;
+/// Shared helpers used by both `--tui` and `--watch` modes.
 pub mod tui_common;
+/// Live `--watch` mode (refresh + diff).
 pub mod watch;
 
 use serde::{Deserialize, Serialize};
@@ -36,6 +53,7 @@ pub fn enrich_cmdline(conns: &mut [Connection]) {
     }
 }
 
+/// macOS variant: see top-level [`enrich_cmdline`].
 #[cfg(target_os = "macos")]
 pub fn enrich_cmdline(conns: &mut [Connection]) {
     platform::macos_enrich::enrich_cmdline(conns);
@@ -77,6 +95,7 @@ fn read_fd_limit(pid: u32) -> Option<usize> {
     None
 }
 
+/// macOS variant: see top-level [`enrich_fd`].
 #[cfg(target_os = "macos")]
 pub fn enrich_fd(conns: &mut [Connection]) {
     platform::macos_enrich::enrich_fd(conns);
@@ -121,6 +140,7 @@ fn read_systemd_unit(pid: u32) -> Option<String> {
     None
 }
 
+/// No-op on non-Linux platforms (systemd is Linux-specific).
 #[cfg(not(target_os = "linux"))]
 pub fn enrich_systemd(_conns: &mut [Connection]) {}
 
@@ -179,6 +199,7 @@ fn build_parent_chain(pid: u32) -> String {
     parts.join(" <- ")
 }
 
+/// macOS variant: see top-level [`enrich_process_tree`].
 #[cfg(target_os = "macos")]
 pub fn enrich_process_tree(conns: &mut [Connection]) {
     platform::macos_enrich::enrich_process_tree(conns);
@@ -226,6 +247,7 @@ pub fn enrich_age(conns: &mut [Connection]) {
     }
 }
 
+/// No-op on non-Linux platforms (age relies on `/proc/<pid>/fd/` mtime).
 #[cfg(not(target_os = "linux"))]
 pub fn enrich_age(_conns: &mut [Connection]) {}
 
@@ -247,7 +269,9 @@ pub const NO_PERMISSION: &str = "-";
 
 // ── Errors ────────────────────────────────────────────────────────────────────
 
+/// Errors returned by `netls` library functions.
 #[derive(Debug, Error)]
+#[allow(missing_docs)]
 pub enum Error {
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
@@ -257,12 +281,15 @@ pub enum Error {
     Parse(String),
 }
 
+/// Convenience alias for `std::result::Result<T, netls::Error>`.
 pub type Result<T> = std::result::Result<T, Error>;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+/// Transport protocol of a connection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[allow(missing_docs)]
 pub enum Proto {
     Tcp,
     Udp,
@@ -279,8 +306,11 @@ impl fmt::Display for Proto {
     }
 }
 
+/// TCP connection state. Mirrors the standard TCP state machine
+/// (RFC 793). Only meaningful for `Proto::Tcp`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[allow(missing_docs)]
 pub enum State {
     Established,
     Listen,
@@ -317,11 +347,17 @@ impl fmt::Display for State {
 /// A single network connection.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Connection {
+    /// Transport protocol.
     pub proto: Proto,
+    /// Local endpoint as `addr:port` (or socket path for Unix sockets).
     pub local: String,
+    /// Remote endpoint as `addr:port`. `0.0.0.0:*` for listening sockets.
     pub remote: String,
+    /// TCP state. `None` for UDP and Unix sockets.
     pub state: Option<State>,
+    /// Owning process ID, when known.
     pub pid: Option<u32>,
+    /// Owning process short name (e.g. `nginx`), when known.
     pub process: Option<String>,
     /// Full command line from `/proc/<pid>/cmdline`. Populated only when --cmdline is used.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -411,12 +447,14 @@ pub struct Filter {
 }
 
 impl Filter {
+    /// Filter by local or remote port number.
     #[must_use]
     pub fn port(mut self, port: u16) -> Self {
         self.port = Some(port);
         self
     }
 
+    /// Filter by owning process ID.
     #[must_use]
     pub fn pid(mut self, pid: u32) -> Self {
         self.pid = Some(pid);
@@ -451,12 +489,14 @@ impl Filter {
         self
     }
 
+    /// Restrict output to IPv4 connections.
     #[must_use]
     pub fn ipv4_only(mut self) -> Self {
         self.ipv4_only = true;
         self
     }
 
+    /// Restrict output to IPv6 connections.
     #[must_use]
     pub fn ipv6_only(mut self) -> Self {
         self.ipv6_only = true;
@@ -545,7 +585,10 @@ pub fn summary(conns: &[Connection]) -> Summary {
     s
 }
 
+/// Aggregated counts of connections by protocol and TCP state.
+/// Returned by [`summary`].
 #[derive(Default)]
+#[allow(missing_docs)]
 pub struct Summary {
     pub tcp_total: usize,
     pub tcp_established: usize,
@@ -647,6 +690,7 @@ pub fn snapshot_with_containers(filter: &Filter) -> Result<Vec<Connection>> {
     Ok(conns)
 }
 
+/// macOS variant: see top-level [`snapshot_with_containers`].
 #[cfg(target_os = "macos")]
 pub fn snapshot_with_containers(filter: &Filter) -> Result<Vec<Connection>> {
     let mut conns = snapshot(filter)?;
@@ -690,6 +734,7 @@ pub fn resolve_docker_name(c: &Connection) -> Option<String> {
     Some(format!("docker-proxy ({service})"))
 }
 
+/// Always `None` on non-Linux platforms (Docker namespace lookup is Linux-only).
 #[cfg(not(target_os = "linux"))]
 pub fn resolve_docker_name(_c: &Connection) -> Option<String> {
     None

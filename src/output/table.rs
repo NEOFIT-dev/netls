@@ -17,7 +17,9 @@ use crate::{
 
 // ── Options ───────────────────────────────────────────────────────────────────
 
+/// Toggles for optional table columns.
 #[derive(Clone, Copy)]
+#[allow(missing_docs)]
 pub struct TableOptions {
     pub resolve_proxy: bool,
     pub show_queues: bool,
@@ -31,6 +33,7 @@ pub struct TableOptions {
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
+/// Render `conns` as a table to stdout.
 pub fn print_conns(conns: &[Connection], opts: TableOptions) -> Result<()> {
     let output = render_conns(conns, opts)?;
     print!("{output}");

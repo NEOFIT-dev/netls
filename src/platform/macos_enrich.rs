@@ -1,6 +1,8 @@
 use crate::Connection;
 use std::collections::HashMap;
 
+/// Populate the `cmdline` field of each connection by reading
+/// `KERN_PROCARGS2` via `sysctl(2)`.
 pub fn enrich_cmdline(conns: &mut [Connection]) {
     for c in conns.iter_mut() {
         let Some(pid) = c.pid else { continue };
@@ -75,6 +77,9 @@ fn macos_cmdline(pid: u32) -> Option<String> {
     }
 }
 
+/// Populate the `fd_usage` field of each connection. Uses
+/// `BSDInfo::pbi_nfiles` for the open count and the current process's
+/// `RLIMIT_NOFILE` as the soft limit (per-PID limits require root on macOS).
 pub fn enrich_fd(conns: &mut [Connection]) {
     use libproc::libproc::bsd_info::BSDInfo;
     use libproc::libproc::proc_pid;
@@ -106,6 +111,8 @@ pub fn enrich_fd(conns: &mut [Connection]) {
     }
 }
 
+/// Populate the `parent_chain` field of each connection by walking
+/// `BSDInfo::pbi_ppid` up to four levels.
 pub fn enrich_process_tree(conns: &mut [Connection]) {
     for c in conns.iter_mut() {
         let Some(pid) = c.pid else { continue };

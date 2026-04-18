@@ -6,6 +6,8 @@ use crate::{Connection, Error, Proto, Result, State, compact_addr};
 
 // ── Public entry point ────────────────────────────────────────────────────────
 
+/// Read the kernel TCP/UDP/Unix tables from `/proc/net/*` and resolve each
+/// socket inode back to the owning process by walking `/proc/<pid>/fd/`.
 pub fn get_connections() -> Result<Vec<Connection>> {
     // Build inode → (pid, process_name) map by walking /proc/[pid]/fd/
     let pid_map = build_inode_pid_map()?;

@@ -26,6 +26,8 @@ struct RawSocketFDInfo {
     psi: SocketInfo,
 }
 
+/// Enumerate all open sockets on macOS using `libproc` (`proc_pidfdinfo` with
+/// `PROC_PIDFDSOCKETINFO`).
 pub fn get_connections() -> Result<Vec<Connection>> {
     #[allow(deprecated)]
     let pids = proc_pid::listpids(proc_pid::ProcType::ProcAllPIDS)

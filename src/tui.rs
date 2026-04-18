@@ -108,6 +108,7 @@ impl App {
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
+/// Launch the interactive TUI (`--tui`). Blocks until the user quits.
 pub fn run(filter: Filter, resolve_proxy: bool) -> Result<()> {
     enable_raw_mode()?;
     execute!(io::stdout(), EnterAlternateScreen)?;

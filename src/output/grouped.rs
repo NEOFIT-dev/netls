@@ -3,6 +3,8 @@ use std::collections::HashMap;
 
 use crate::Connection;
 
+/// Group `conns` by `field` (`remote-ip`, `process`, `port`, or `proto`) and
+/// print counts per group to stdout.
 pub fn print_conns(conns: &[Connection], field: &str) -> Result<()> {
     let valid = ["remote-ip", "process", "port", "proto"];
     if !valid.contains(&field) {

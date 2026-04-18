@@ -2,6 +2,8 @@ use anyhow::Result;
 
 use crate::Connection;
 
+/// Render `conns` as JSON to stdout - one object per line, or a single
+/// pretty-printed object per connection when `pretty` is `true`.
 pub fn print_conns(conns: &[Connection], pretty: bool) -> Result<()> {
     for c in conns {
         let s = if pretty {

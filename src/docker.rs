@@ -164,6 +164,7 @@ pub fn get_container_connections() -> Result<Vec<Connection>> {
     Ok(result)
 }
 
+/// Always returns an empty Vec on non-Linux platforms (no `/proc/<pid>/net/`).
 #[cfg(not(target_os = "linux"))]
 pub fn get_container_connections() -> Result<Vec<Connection>> {
     Ok(vec![])
