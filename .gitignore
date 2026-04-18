@@ -1,0 +1,18 @@
+# Build artifacts
+/target/
+
+# IDEs
+/.idea/
+/.vscode/
+/.zed/
+/.fleet/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor swap / backup files
+*.swp
+*.swo
+*.bak
+*~
