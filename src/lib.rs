@@ -7,6 +7,8 @@
 //! [`Filter`]) and the various `enrich_*` functions that populate optional
 //! fields on each [`Connection`].
 
+/// Configuration file (TOML) loading: `[defaults]`, `[profiles.<name>]`, `[ports]`.
+pub mod config;
 /// Reverse-DNS resolution helpers.
 pub mod dns;
 /// Docker container metadata for connection enrichment.
@@ -15,7 +17,8 @@ pub mod docker;
 pub mod output;
 /// Per-platform connection collection (Linux `/proc`, macOS `libproc`).
 pub mod platform;
-/// Well-known port → service-name lookups (`/etc/services` plus a builtin map).
+/// Port → service-name resolution: user `[ports]` overrides → curated built-in
+/// map → `/etc/services` (Unix only; empty layer elsewhere).
 pub mod services;
 /// Interactive `--tui` mode.
 pub mod tui;
@@ -30,6 +33,32 @@ use std::fmt;
 use thiserror::Error;
 
 pub use dns::resolve_dns;
+
+/// Connection states accepted by `--state` and the `state` config field.
+pub const VALID_STATES: &[&str] = &[
+    "established",
+    "listen",
+    "syn_sent",
+    "syn_recv",
+    "fin_wait1",
+    "fin_wait2",
+    "time_wait",
+    "close",
+    "close_wait",
+    "last_ack",
+    "closing",
+];
+
+/// Protocols accepted by `--proto` and the `proto` config field.
+pub const VALID_PROTOS: &[&str] = &["tcp", "udp", "unix"];
+
+/// Columns accepted by `--sort` and the `sort` config field.
+pub const VALID_SORT: &[&str] = &[
+    "proto", "local", "remote", "state", "pid", "process", "port",
+];
+
+/// Fields accepted by `--group-by` and the `group_by` config field.
+pub const VALID_GROUP_BY: &[&str] = &["remote-ip", "process", "port", "proto"];
 
 /// Populate `cmdline` field for each connection.
 /// On Linux: reads `/proc/<pid>/cmdline` (full args joined with spaces).
@@ -72,9 +101,8 @@ pub fn enrich_fd(conns: &mut [Connection]) {
     for c in conns.iter_mut() {
         let Some(pid) = c.pid else { continue };
         let usage = cache.entry(pid).or_insert_with(|| {
-            let open = std::fs::read_dir(format!("/proc/{pid}/fd"))
-                .map(std::iter::Iterator::count)
-                .unwrap_or(0);
+            let open =
+                std::fs::read_dir(format!("/proc/{pid}/fd")).map_or(0, std::iter::Iterator::count);
             let limit = read_fd_limit(pid).unwrap_or(usize::MAX);
             (open, limit)
         });
@@ -216,8 +244,7 @@ pub fn enrich_age(conns: &mut [Connection]) {
     use std::time::SystemTime;
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
+        .map_or(0, |d| d.as_secs());
     for c in conns.iter_mut() {
         let (Some(pid), Some(inode)) = (c.pid, c.inode) else {
             continue;
@@ -252,6 +279,7 @@ pub fn enrich_age(conns: &mut [Connection]) {
 pub fn enrich_age(_conns: &mut [Connection]) {}
 
 /// Format age in seconds as a human-readable string: "5s", "3m12s", "2h34m", "1d3h".
+#[must_use]
 pub fn fmt_age(secs: u64) -> String {
     if secs < 60 {
         format!("{secs}s")
@@ -392,22 +420,26 @@ impl Connection {
     /// Unique identity key: `"proto|local|remote"`.
     /// Used for diffing snapshots and proxy chain lookups.
     /// Stable string key uniquely identifying this connection: `"proto|local|remote"`.
+    #[must_use]
     pub fn key(&self) -> String {
         format!("{}|{}|{}", self.proto, self.local, self.remote)
     }
 
     /// State as a display string, or `"-"` if absent.
+    #[must_use]
     pub fn state_str(&self) -> String {
         self.state
             .map_or_else(|| "-".to_string(), |s| s.to_string())
     }
 
     /// Process name, or `NO_PERMISSION` if absent.
+    #[must_use]
     pub fn process_display(&self) -> &str {
         self.process.as_deref().unwrap_or(NO_PERMISSION)
     }
 
     /// Returns true if `query` (already lowercased) matches any visible field.
+    #[must_use]
     pub fn text_matches(&self, query: &str) -> bool {
         if query.is_empty() {
             return true;
@@ -514,6 +546,11 @@ impl Filter {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /// Return a snapshot of current network connections, optionally filtered.
+///
+/// # Errors
+///
+/// Propagates I/O errors from [`platform::get_connections`]: failure to read
+/// `/proc/net/*` on Linux or `proc_listpidinfo` on macOS.
 pub fn snapshot(filter: &Filter) -> Result<Vec<Connection>> {
     let all = platform::get_connections()?;
     Ok(apply_filter(all, filter))
@@ -521,6 +558,10 @@ pub fn snapshot(filter: &Filter) -> Result<Vec<Connection>> {
 
 /// Return all connections without any filtering.
 /// Used internally for proxy chain analysis which needs the full picture.
+///
+/// # Errors
+///
+/// Same conditions as [`snapshot`].
 pub fn snapshot_all() -> Result<Vec<Connection>> {
     platform::get_connections()
 }
@@ -548,6 +589,7 @@ pub fn sort_connections(conns: &mut [Connection], by: &str) {
 
 /// Return top N processes by connection count.
 /// Each entry: (process_name, count).
+#[must_use]
 pub fn top_connections(conns: &[Connection], n: usize) -> Vec<(String, usize)> {
     use std::collections::HashMap;
     let counts = conns
@@ -564,6 +606,7 @@ pub fn top_connections(conns: &[Connection], n: usize) -> Vec<(String, usize)> {
 }
 
 /// Return a summary of connections grouped by proto and state.
+#[must_use]
 pub fn summary(conns: &[Connection]) -> Summary {
     let mut s = Summary::default();
     for c in conns {
@@ -677,6 +720,12 @@ fn build_port_clients_map(conns: &[Connection]) -> HashMap<u16, HashSet<String>>
 /// Collect connections from inside all running Docker containers.
 /// Appends to an existing slice (pass host connections to merge them).
 /// Linux only - Docker runs in a VM on macOS; namespace trick does not apply.
+///
+/// # Errors
+///
+/// Propagates [`snapshot`] failures from host-side collection. Docker-side
+/// failures (socket missing, netns access denied, container exited mid-scan)
+/// are swallowed and the host snapshot is returned alone.
 #[cfg(target_os = "linux")]
 pub fn snapshot_with_containers(filter: &Filter) -> Result<Vec<Connection>> {
     let mut conns = snapshot(filter)?;
@@ -722,6 +771,7 @@ pub fn snapshot_with_containers(_filter: &Filter) -> Result<Vec<Connection>> {
 /// and return a label like `"docker-proxy (frontend)"`.
 /// Returns `None` if not applicable or resolution fails.
 #[cfg(target_os = "linux")]
+#[must_use]
 pub fn resolve_docker_name(c: &Connection) -> Option<String> {
     if c.process.as_deref() != Some("docker-proxy") {
         return None;
@@ -841,6 +891,7 @@ fn is_ipv6_addr(addr: &str) -> bool {
 
 /// Replace verbose IPv6 addresses with human-friendly aliases.
 /// `[::1]:port` → `localhost:port`, `[::]:port` / `[0:…:0]:port` → `*:port`
+#[must_use]
 pub fn compact_addr(addr: &str) -> String {
     if let Some(rest) = addr.strip_prefix("[::1]:") {
         return format!("localhost:{rest}");

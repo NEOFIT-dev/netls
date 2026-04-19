@@ -109,6 +109,11 @@ impl App {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 /// Launch the interactive TUI (`--tui`). Blocks until the user quits.
+///
+/// # Errors
+///
+/// Fails if stdout is not a TTY (cannot enable raw mode), if the terminal
+/// backend errors out, or if the underlying [`crate::snapshot`] call fails.
 pub fn run(filter: Filter, resolve_proxy: bool) -> Result<()> {
     enable_raw_mode()?;
     execute!(io::stdout(), EnterAlternateScreen)?;

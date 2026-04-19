@@ -10,6 +10,7 @@ const DOCKER_SOCKET_FALLBACK: &str = ".docker/run/docker.sock"; // relative to $
 // ── docker-proxy helpers ──────────────────────────────────────────────────────
 
 /// Parse `-container-ip <IP>` from a docker-proxy cmdline (null-separated args).
+#[must_use]
 pub fn parse_container_ip(cmdline: &[u8]) -> Option<String> {
     let args: Vec<&str> = cmdline
         .split(|&b| b == 0)
@@ -26,6 +27,7 @@ pub fn parse_container_ip(cmdline: &[u8]) -> Option<String> {
 
 /// Build a map of container IP → compose service name (or container name as fallback).
 /// Returns empty map on any error.
+#[must_use]
 pub fn container_ip_to_service() -> HashMap<String, String> {
     list_containers()
         .ok()
@@ -40,6 +42,7 @@ pub fn container_ip_to_service() -> HashMap<String, String> {
 
 /// Build a map of host published port → container name.
 /// Used on platforms where container namespaces are not accessible (e.g. macOS).
+#[must_use]
 pub fn container_published_ports() -> HashMap<u16, String> {
     list_containers()
         .ok()
@@ -102,7 +105,9 @@ fn list_containers() -> std::io::Result<Vec<ContainerInfo>> {
                 .map(|ports| {
                     ports
                         .iter()
-                        .filter_map(|p| p["PublicPort"].as_u64().map(|n| n as u16))
+                        .filter_map(|p| {
+                            p["PublicPort"].as_u64().and_then(|n| u16::try_from(n).ok())
+                        })
                         .collect()
                 })
                 .unwrap_or_default();
@@ -141,6 +146,11 @@ fn container_host_pid(container_id: &str) -> std::io::Result<u32> {
 /// Collect connections from all running Docker containers.
 /// Requires root to read `/proc/<pid>/net/tcp` for foreign processes.
 /// Returns empty vec on any error (Docker not running, no permission, etc.).
+///
+/// # Errors
+///
+/// Fails only when the host inode-to-PID map cannot be built (procfs
+/// unreadable). Docker-side failures yield an empty vec instead of an error.
 #[cfg(target_os = "linux")]
 pub fn get_container_connections() -> Result<Vec<Connection>> {
     let Ok(containers) = list_containers() else {

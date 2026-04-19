@@ -12,6 +12,11 @@ pub mod macos_enrich;
 
 /// Collect all current network connections from the running OS.
 /// Dispatches to the platform-specific implementation.
+///
+/// # Errors
+///
+/// On Linux/macOS: propagates the platform layer's I/O errors (procfs or
+/// libproc). On unsupported platforms: returns [`crate::Error::UnsupportedPlatform`].
 pub fn get_connections() -> Result<Vec<Connection>> {
     #[cfg(target_os = "linux")]
     return linux::get_connections();

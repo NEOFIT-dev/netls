@@ -1,3 +1,9 @@
+// FFI cast safety: AF_INET / AF_INET6 are 2 / 10 (fit in u16), size_of of
+// sockaddr_in / sockaddr_in6 are 16 / 28 (fit in u32), and host buffers are
+// fixed 256-byte arrays. The libc API requires these specific integer widths,
+// so the casts are mechanical glue rather than potentially-lossy truncation.
+#![allow(clippy::cast_possible_truncation)]
+
 #[cfg(unix)]
 extern crate libc;
 
@@ -98,7 +104,7 @@ fn reverse_lookup_blocking(ip: &str) -> String {
                 // read `host` after a successful (ret == 0) return.
                 unsafe {
                     call_getnameinfo(
-                        std::ptr::addr_of!(sa) as *const libc::sockaddr,
+                        std::ptr::addr_of!(sa).cast::<libc::sockaddr>(),
                         std::mem::size_of::<libc::sockaddr_in>() as libc::socklen_t,
                         &mut host,
                     )
@@ -122,7 +128,7 @@ fn reverse_lookup_blocking(ip: &str) -> String {
                 // read `host` after a successful (ret == 0) return.
                 unsafe {
                     call_getnameinfo(
-                        std::ptr::addr_of!(sa) as *const libc::sockaddr,
+                        std::ptr::addr_of!(sa).cast::<libc::sockaddr>(),
                         std::mem::size_of::<libc::sockaddr_in6>() as libc::socklen_t,
                         &mut host,
                     )

@@ -3,6 +3,10 @@ use anyhow::Result;
 use crate::Connection;
 
 /// Render `conns` as CSV to stdout.
+///
+/// # Errors
+///
+/// Propagates I/O errors writing to stdout (broken pipe, etc.).
 pub fn print_conns(conns: &[Connection]) -> Result<()> {
     let mut w = csv::Writer::from_writer(std::io::stdout());
     write_conns(&mut w, conns)?;

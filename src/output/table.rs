@@ -34,6 +34,10 @@ pub struct TableOptions {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 /// Render `conns` as a table to stdout.
+///
+/// # Errors
+///
+/// Propagates errors from the `tabled` renderer and stdout writes.
 pub fn print_conns(conns: &[Connection], opts: TableOptions) -> Result<()> {
     let output = render_conns(conns, opts)?;
     print!("{output}");

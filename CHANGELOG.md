@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-04-19
+
+### Added
+
+**Configuration files** (`~/.config/netls/config.toml`, `NETLS_CONFIG`, or `--config PATH`):
+- `[defaults]`: defaults for any long-form CLI flag
+- `[profiles.<name>]`: named overlays activated with `--profile <name>`
+- `[ports]`: port to service-name overrides
+
+**New CLI flags:**
+- `--config PATH`: load a specific file
+- `--profile NAME`: activate a named profile
+- `--init-config`: write a starter config (refuses to overwrite without `--force`)
+- `--show-config`: print the resolved effective config with origin per field
+
+**Quality of life:**
+- `[ports]` non-empty auto-enables `--service-names`
+- `NETLS_CONFIG` paths starting with `~` are expanded
+- When `--profile NAME` is active, prints `applied: ... from <path>` to stderr
+
+**Library API:**
+- New module `netls::config` (`Config`, `Defaults`, `LoadedConfig`, `load`)
+- New public constants `netls::VALID_{STATES,PROTOS,SORT,GROUP_BY}`
+
+### Changed
+
+- `--service-names` now reads `/etc/services` after the curated built-in map.
+  Previously only ~28 hand-picked ports were annotated; thousands of IANA
+  names are now resolved automatically. Built-in entries still win ties.
+
 ## [0.1.1] - 2026-04-18
 
 ### Fixed

@@ -5,13 +5,16 @@ use crate::Connection;
 
 /// Group `conns` by `field` (`remote-ip`, `process`, `port`, or `proto`) and
 /// print counts per group to stdout.
+///
+/// # Errors
+///
+/// Bails when `field` is not one of the four supported values.
 pub fn print_conns(conns: &[Connection], field: &str) -> Result<()> {
-    let valid = ["remote-ip", "process", "port", "proto"];
-    if !valid.contains(&field) {
+    if !crate::VALID_GROUP_BY.contains(&field) {
         anyhow::bail!(
             "invalid --group-by value {:?}. Valid values: {}",
             field,
-            valid.join(", ")
+            crate::VALID_GROUP_BY.join(", ")
         );
     }
 

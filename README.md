@@ -7,12 +7,21 @@
 - **Process tree** - trace any connection back to its parent process chain
 - **Watch mode** - live diff, see new and closed connections in real time
 - **CI-friendly** - `--wait-for 8080` blocks until a port is up
+- **Configs & profiles** - save common flag sets and switch with one flag
 - **And more** - TUI, snapshot diff, service name annotations, port utilities
 - **Linux & macOS** - full support on both platforms; macOS works entirely without root
 
 [![CI](https://img.shields.io/github/actions/workflow/status/NEOFIT-dev/netls/ci.yml?label=CI)](https://github.com/NEOFIT-dev/netls/actions)
 [![crates.io](https://img.shields.io/crates/v/netls)](https://crates.io/crates/netls)
 [![docs.rs](https://img.shields.io/docsrs/netls)](https://docs.rs/netls)
+
+## Contents
+
+- [Installation](#installation)
+- [Usage](#usage)
+- [Output](#output)
+- [Configuration](#configuration)
+- [As a library](#as-a-library)
 
 ## Quick look
 
@@ -73,7 +82,7 @@ netls --no-loopback --state established
 
 ```bash
 netls --queues        # RECV-Q / SEND-Q (TCP buffer fill in bytes)
-netls --service-names # annotate ports with service names (e.g. :5432 → :5432 (postgres))
+netls --service-names # annotate ports with service names (curated built-ins + /etc/services)
 netls --age           # approximate connection age (Linux only)
 netls --tree          # parent process chain: "bash ← tmux"
 netls --systemd       # owning systemd unit: "nginx.service" (Linux only)
@@ -183,6 +192,77 @@ netls --tui
 
 Interactive mode with live updates, keyboard navigation, and inline filtering. Exit with `q` or Ctrl+C.
 
+## Configuration
+
+netls can read defaults and named profiles from a TOML config file. Location
+(first match wins):
+
+1. `--config PATH` flag
+2. `NETLS_CONFIG` environment variable
+3. `~/.config/netls/config.toml` (or the platform equivalent)
+
+Example `~/.config/netls/config.toml`:
+
+```toml
+# Applied at every invocation unless overridden on the command line
+[defaults]
+proto = "tcp"
+sort = "port"
+service_names = true
+
+# Extend the built-in port -> service-name map
+[ports]
+3000 = "vite-dev"
+4321 = "astro-dev"
+9229 = "node-debug"
+
+# Named overlays activated with --profile <name>
+[profiles.k8s]
+all = true
+containers = true
+
+[profiles.dev]
+listen = true
+no_loopback = true
+
+[profiles.audit]
+state = "listen"
+no_loopback = true
+```
+
+Usage:
+
+```bash
+netls                     # applies [defaults]
+netls --profile k8s       # applies [defaults] then [profiles.k8s] on top
+netls --proto udp         # CLI flag overrides config, regardless of profile
+```
+
+Helper commands:
+
+```bash
+netls --init-config            # write a starter config to ~/.config/netls/config.toml
+netls --init-config --force    # overwrite an existing file
+netls --show-config            # print resolved config with origin per field
+```
+
+All three accept `--config PATH` to target a specific file instead of the default.
+
+Notes:
+
+- Config field names match long-form CLI flags with `-` replaced by `_`
+  (`no_loopback`, `service_names`, `group_by`, etc.).
+- One-shot actions (`--watch`, `--summary`, `--top`, `--count`, `--tui`,
+  `--check-port`, `--kill`, `--wait-for`, `--save`, `--diff`, `--warn-timewait`,
+  `--timeout`, `--force`) are not configurable.
+- A non-empty `[ports]` auto-enables `--service-names`. Set
+  `service_names = false` in `[defaults]` to opt out.
+- `NETLS_CONFIG` expands a leading `~` / `~/` to your home directory.
+
+Known limitation: a boolean flag set to `true` in `[defaults]` or an active
+profile cannot be turned back off from the command line (there are no `--no-X`
+negation flags yet). To opt out, remove the field from the config or switch
+profiles. Negation flags are planned.
 
 ## As a library
 

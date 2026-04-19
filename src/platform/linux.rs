@@ -8,6 +8,11 @@ use crate::{Connection, Error, Proto, Result, State, compact_addr};
 
 /// Read the kernel TCP/UDP/Unix tables from `/proc/net/*` and resolve each
 /// socket inode back to the owning process by walking `/proc/<pid>/fd/`.
+///
+/// # Errors
+///
+/// Returns an [`enum@Error`] if `/proc/net/{tcp,tcp6,udp,udp6,unix}` cannot
+/// be read (procfs missing, permissions, etc.).
 pub fn get_connections() -> Result<Vec<Connection>> {
     // Build inode → (pid, process_name) map by walking /proc/[pid]/fd/
     let pid_map = build_inode_pid_map()?;
@@ -350,13 +355,13 @@ mod tests {
     fn test_parse_ipv4_loopback() {
         // 127.0.0.1 stored as little-endian u32 = 0x0100007F
         let ip = parse_ipv4_hex("0100007F").unwrap();
-        assert_eq!(ip, Ipv4Addr::new(127, 0, 0, 1));
+        assert_eq!(ip, Ipv4Addr::LOCALHOST);
     }
 
     #[test]
     fn test_parse_ipv4_any() {
         let ip = parse_ipv4_hex("00000000").unwrap();
-        assert_eq!(ip, Ipv4Addr::new(0, 0, 0, 0));
+        assert_eq!(ip, Ipv4Addr::UNSPECIFIED);
     }
 
     #[test]

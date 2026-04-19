@@ -1,6 +1,6 @@
 [package]
 name = "netls"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.88"
 description = "Network connections viewer for daily use and automation - container visibility, JSON/CSV output, process tree, live watch mode"
@@ -38,6 +38,13 @@ crossterm = "0.28"
 # Error handling
 thiserror = "2"
 anyhow = "1"
+
+# Config file
+figment = { version = "0.10", features = ["toml"] }
+dirs = "5"
+
+[dev-dependencies]
+tempfile = "3"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

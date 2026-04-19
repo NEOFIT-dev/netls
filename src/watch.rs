@@ -27,6 +27,11 @@ pub enum WatchOutput {
 
 /// Launch the live `--watch` loop. Refreshes every `interval_secs` and
 /// renders the diff between successive snapshots. Blocks until interrupted.
+///
+/// # Errors
+///
+/// Fails if stdout is not a TTY (table mode cannot enable raw mode for the
+/// alternate screen) or if [`crate::snapshot`] errors on a refresh.
 pub fn run(
     filter: &Filter,
     interval_secs: u64,
