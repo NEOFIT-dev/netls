@@ -3,7 +3,7 @@
 `netls` - a network connections viewer built for developer workflows and automation.
 
 - **JSON & CSV output** - pipe directly into `jq`, scripts, or AI agents
-- **Container visibility** - shows which container owns each connection (Docker supported, more runtimes coming)
+- **Container visibility** - shows which container owns each connection (Docker and Podman)
 - **Process tree** - trace any connection back to its parent process chain
 - **Watch mode** - live diff, see new and closed connections in real time
 - **CI-friendly** - `--wait-for 8080` blocks until a port is up
@@ -88,7 +88,7 @@ netls --tree          # parent process chain: "bash ← tmux"
 netls --systemd       # owning systemd unit: "nginx.service" (Linux only)
 netls --fd            # open file-descriptor count/limit per process
 netls --cmdline       # full command line instead of short process name
-netls --containers    # include connections from Docker containers (requires root)
+netls --containers    # include connections from Docker / Podman containers
 netls --resolve-dns   # resolve remote IPs to hostnames (may be slow)
 netls --resolve-proxy # show real originating process for proxied connections
 ```

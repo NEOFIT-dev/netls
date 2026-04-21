@@ -11,8 +11,9 @@
 pub mod config;
 /// Reverse-DNS resolution helpers (internal; re-exported as [`resolve_dns`]).
 pub(crate) mod dns;
-/// Docker container metadata; wrapped by [`snapshot_with_containers`].
-pub(crate) mod docker;
+/// Container runtime (Docker, Podman) metadata; wrapped by
+/// [`snapshot_with_containers`].
+pub(crate) mod runtime;
 /// Per-platform connection collection; wrapped by [`snapshot`].
 pub(crate) mod platform;
 
@@ -851,7 +852,7 @@ pub struct SnapshotResult {
 pub fn snapshot_with_containers(filter: &Filter) -> Result<SnapshotResult> {
     let mut connections = snapshot(filter)?;
     let mut warnings = Vec::new();
-    match docker::get_container_connections() {
+    match runtime::get_container_connections() {
         Ok(container_conns) => {
             let filtered = apply_filter(container_conns, filter);
             connections.extend(filtered);
@@ -868,7 +869,7 @@ pub fn snapshot_with_containers(filter: &Filter) -> Result<SnapshotResult> {
 #[cfg(target_os = "macos")]
 pub fn snapshot_with_containers(filter: &Filter) -> Result<SnapshotResult> {
     let mut connections = snapshot(filter)?;
-    let port_map = docker::container_published_ports();
+    let port_map = runtime::container_published_ports();
     if !port_map.is_empty() {
         for c in connections.iter_mut() {
             if let Some(port) = extract_port(&c.local)
@@ -906,8 +907,8 @@ pub fn docker_proxy_service(c: &Connection) -> Option<String> {
     }
     let pid = c.pid?;
     let cmdline = std::fs::read(format!("/proc/{pid}/cmdline")).ok()?;
-    let container_ip = docker::parse_container_ip(&cmdline)?;
-    let map = docker::container_ip_to_service();
+    let container_ip = runtime::parse_docker_proxy_ip(&cmdline)?;
+    let map = runtime::container_ip_to_service();
     map.get(&container_ip).cloned()
 }
 
