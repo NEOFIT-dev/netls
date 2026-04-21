@@ -1,17 +1,19 @@
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
+use std::time::Duration;
 
 use crate::{Connection, Result};
 
 const DOCKER_SOCKET: &str = "/var/run/docker.sock";
 const DOCKER_SOCKET_FALLBACK: &str = ".docker/run/docker.sock"; // relative to $HOME
+const DOCKER_TIMEOUT: Duration = Duration::from_secs(2);
 
 // ── docker-proxy helpers ──────────────────────────────────────────────────────
 
 /// Parse `-container-ip <IP>` from a docker-proxy cmdline (null-separated args).
 #[must_use]
-pub fn parse_container_ip(cmdline: &[u8]) -> Option<String> {
+pub(crate) fn parse_container_ip(cmdline: &[u8]) -> Option<String> {
     let args: Vec<&str> = cmdline
         .split(|&b| b == 0)
         .filter_map(|s| std::str::from_utf8(s).ok())
@@ -28,7 +30,7 @@ pub fn parse_container_ip(cmdline: &[u8]) -> Option<String> {
 /// Build a map of container IP → compose service name (or container name as fallback).
 /// Returns empty map on any error.
 #[must_use]
-pub fn container_ip_to_service() -> HashMap<String, String> {
+pub(crate) fn container_ip_to_service() -> HashMap<String, String> {
     list_containers()
         .ok()
         .map(|containers| {
@@ -154,7 +156,7 @@ fn container_host_pid(container_id: &str) -> std::io::Result<u32> {
 /// Fails only when the host inode-to-PID map cannot be built (procfs
 /// unreadable). Docker-side failures yield an empty vec instead of an error.
 #[cfg(target_os = "linux")]
-pub fn get_container_connections() -> Result<Vec<Connection>> {
+pub(crate) fn get_container_connections() -> Result<Vec<Connection>> {
     let Ok(containers) = list_containers() else {
         return Ok(vec![]);
     };
@@ -178,7 +180,7 @@ pub fn get_container_connections() -> Result<Vec<Connection>> {
 
 /// Always returns an empty Vec on non-Linux platforms (no `/proc/<pid>/net/`).
 #[cfg(not(target_os = "linux"))]
-pub fn get_container_connections() -> Result<Vec<Connection>> {
+pub(crate) fn get_container_connections() -> Result<Vec<Connection>> {
     Ok(vec![])
 }
 
@@ -200,6 +202,8 @@ fn docker_socket_path() -> std::path::PathBuf {
 
 fn docker_get(path: &str) -> std::io::Result<String> {
     let mut stream = UnixStream::connect(docker_socket_path())?;
+    stream.set_read_timeout(Some(DOCKER_TIMEOUT))?;
+    stream.set_write_timeout(Some(DOCKER_TIMEOUT))?;
     let req = format!("GET {path} HTTP/1.0\r\nHost: localhost\r\n\r\n");
     stream.write_all(req.as_bytes())?;
 

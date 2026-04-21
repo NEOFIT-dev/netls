@@ -37,7 +37,7 @@
 
 ## Installation
 
-Requires Rust 1.88 or newer.
+Supported platforms: Linux, macOS. Requires Rust 1.88 or newer.
 
 ```bash
 cargo install netls
