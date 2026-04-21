@@ -805,35 +805,49 @@ fn build_port_clients_map(conns: &[Connection]) -> HashMap<u16, HashSet<String>>
     map
 }
 
-/// Collect connections from inside all running Docker containers.
-/// Appends to an existing slice (pass host connections to merge them).
+/// Result of [`snapshot_with_containers`]: connections plus any non-fatal
+/// warnings that occurred while enriching from container runtimes.
+#[non_exhaustive]
+#[derive(Debug, Default)]
+pub struct SnapshotResult {
+    /// Collected connections.
+    pub connections: Vec<Connection>,
+    /// Non-fatal problems (e.g. Docker socket unreachable, a single
+    /// container's netns not accessible). One string per occurrence.
+    pub warnings: Vec<String>,
+}
+
+/// Collect connections from the host plus all running Docker containers.
 /// Linux only - Docker runs in a VM on macOS; namespace trick does not apply.
 ///
 /// # Errors
 ///
 /// Propagates [`snapshot`] failures from host-side collection. Docker-side
-/// failures (socket missing, netns access denied, container exited mid-scan)
-/// are swallowed and the host snapshot is returned alone.
+/// failures surface in [`SnapshotResult::warnings`] rather than as errors.
 #[cfg(target_os = "linux")]
-pub fn snapshot_with_containers(filter: &Filter) -> Result<Vec<Connection>> {
-    let mut conns = snapshot(filter)?;
+pub fn snapshot_with_containers(filter: &Filter) -> Result<SnapshotResult> {
+    let mut connections = snapshot(filter)?;
+    let mut warnings = Vec::new();
     match docker::get_container_connections() {
         Ok(container_conns) => {
             let filtered = apply_filter(container_conns, filter);
-            conns.extend(filtered);
+            connections.extend(filtered);
         }
-        Err(e) => eprintln!("netls: warning: failed to read container connections: {e}"),
+        Err(e) => warnings.push(format!("failed to read container connections: {e}")),
     }
-    Ok(conns)
+    Ok(SnapshotResult {
+        connections,
+        warnings,
+    })
 }
 
 /// macOS variant: see top-level [`snapshot_with_containers`].
 #[cfg(target_os = "macos")]
-pub fn snapshot_with_containers(filter: &Filter) -> Result<Vec<Connection>> {
-    let mut conns = snapshot(filter)?;
+pub fn snapshot_with_containers(filter: &Filter) -> Result<SnapshotResult> {
+    let mut connections = snapshot(filter)?;
     let port_map = docker::container_published_ports();
     if !port_map.is_empty() {
-        for c in conns.iter_mut() {
+        for c in connections.iter_mut() {
             if let Some(port) = extract_port(&c.local)
                 && let Some(name) = port_map.get(&port)
             {
@@ -847,16 +861,17 @@ pub fn snapshot_with_containers(filter: &Filter) -> Result<Vec<Connection>> {
             }
         }
     }
-    Ok(conns)
+    Ok(SnapshotResult {
+        connections,
+        warnings: Vec::new(),
+    })
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-pub fn snapshot_with_containers(_filter: &Filter) -> Result<Vec<Connection>> {
+pub fn snapshot_with_containers(_filter: &Filter) -> Result<SnapshotResult> {
     Err(Error::UnsupportedPlatform)
 }
 
-/// If the process is `docker-proxy`, resolve the container IP from its cmdline
-/// and return a label like `"docker-proxy (frontend)"`.
 /// For a `docker-proxy` connection, resolve the compose/container service
 /// name behind it. Returns `None` if the connection is not `docker-proxy`
 /// or if resolution fails (no PID, cmdline unreadable, daemon unreachable).

@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Connection::local` and `Connection::remote` now carry raw addresses
   (e.g. `[::1]:80`). The CLI still prints `localhost:80` / `*:80` via
   `compact_addr` at render time.
+- `snapshot_with_containers` now returns `SnapshotResult` (connections +
+  warnings) instead of `Vec<Connection>`. Docker-side failures no longer
+  print to stderr from inside the library.
 
 ### Added
 
@@ -28,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docker_proxy_service` replaces `resolve_docker_name` and returns
   just the service name.
 - `#[non_exhaustive]` on `Proto`, `State`, `Error`, `Summary`, `ConfigError`,
-  `FdUsage`, `ParseEnumError`, `SortKey`.
+  `FdUsage`, `ParseEnumError`, `SortKey`, `SnapshotResult`.
 
 ### Removed
 

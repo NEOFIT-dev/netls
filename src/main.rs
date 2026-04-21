@@ -888,7 +888,11 @@ fn main() -> Result<()> {
         watch::run(&filter, interval, &mode, rp, cli.containers)?;
     } else {
         let mut conns = if cli.containers {
-            netls::snapshot_with_containers(&filter)?
+            let r = netls::snapshot_with_containers(&filter)?;
+            for w in &r.warnings {
+                eprintln!("netls: warning: {w}");
+            }
+            r.connections
         } else {
             netls::snapshot(&filter)?
         };

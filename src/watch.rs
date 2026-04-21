@@ -49,6 +49,18 @@ pub fn run(
     }
 }
 
+fn snapshot_for(filter: &Filter, containers: bool) -> netls::Result<Vec<Connection>> {
+    if containers {
+        let r = snapshot_with_containers(filter)?;
+        for w in &r.warnings {
+            eprintln!("netls: warning: {w}");
+        }
+        Ok(r.connections)
+    } else {
+        snapshot(filter)
+    }
+}
+
 // ── JSON streaming mode ───────────────────────────────────────────────────────
 
 fn run_json(
@@ -60,11 +72,7 @@ fn run_json(
     let mut prev_conns: Vec<Connection> = Vec::new();
 
     loop {
-        match if containers {
-            snapshot_with_containers(filter)
-        } else {
-            snapshot(filter)
-        } {
+        match snapshot_for(filter, containers) {
             Err(e) => {
                 eprintln!("netls: warning: snapshot failed: {e}");
             }
@@ -292,11 +300,7 @@ fn refresh_data(
         return;
     }
 
-    let curr = match if containers {
-        snapshot_with_containers(filter)
-    } else {
-        snapshot(filter)
-    } {
+    let curr = match snapshot_for(filter, containers) {
         Ok(c) => c,
         Err(e) => {
             // Transient errors (e.g. permissions on /proc) should not kill watch mode.
