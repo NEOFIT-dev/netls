@@ -17,7 +17,7 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState},
 };
 
-use netls::{Connection, Filter, State, diff_connections, snapshot};
+use netls::{Connection, Filter, State, compact_addr, diff_connections, snapshot};
 
 use crate::display::{NO_PERMISSION, format_process_text, state_str};
 use crate::tui_common::TerminalGuard;
@@ -311,8 +311,8 @@ fn build_tui_row(
 
     Row::new(vec![
         Cell::from(c.proto.to_string()).style(row_style),
-        Cell::from(c.local.clone()).style(row_style),
-        Cell::from(c.remote.clone()).style(row_style),
+        Cell::from(compact_addr(&c.local)).style(row_style),
+        Cell::from(compact_addr(&c.remote)).style(row_style),
         state_cell,
         c.pid.map_or_else(no_permission_cell, |p| {
             Cell::from(p.to_string()).style(row_style)

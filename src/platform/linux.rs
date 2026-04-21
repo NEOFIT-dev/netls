@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
-use crate::{Connection, Error, Proto, Result, State, compact_addr};
+use crate::{Connection, Error, Proto, Result, State};
 
 // ── Public entry point ────────────────────────────────────────────────────────
 
@@ -119,14 +119,13 @@ fn parse_address(s: &str, ipv6: bool) -> Result<String> {
         port.to_string()
     };
 
-    let raw = if ipv6 {
+    Ok(if ipv6 {
         let ip = parse_ipv6_hex(addr_hex)?;
         format!("[{ip}]:{port_str}")
     } else {
         let ip = parse_ipv4_hex(addr_hex)?;
         format!("{ip}:{port_str}")
-    };
-    Ok(compact_addr(&raw))
+    })
 }
 
 /// 8 hex chars → Ipv4Addr.

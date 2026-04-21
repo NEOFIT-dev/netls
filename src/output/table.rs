@@ -10,7 +10,7 @@ use tabled::settings::Style;
 use tabled::settings::object::Columns;
 use tabled::settings::width::Truncate;
 
-use netls::{Connection, FdUsage, State, fmt_age, resolve_proxy_origins, snapshot_all};
+use netls::{Connection, FdUsage, State, compact_addr, fmt_age, resolve_proxy_origins, snapshot_all};
 
 use crate::display::{self, NO_PERMISSION, format_process_text};
 use crate::services;
@@ -212,8 +212,8 @@ fn build_base(
     };
     BaseRow {
         proto: c.proto.to_string(),
-        local: fmt_loc(&c.local),
-        remote: fmt_remote(&c.remote),
+        local: fmt_loc(&compact_addr(&c.local)),
+        remote: fmt_remote(&compact_addr(&c.remote)),
         state: fmt_state(c.state.as_ref(), color),
         pid: c.pid.map(|p| p.to_string()).unwrap_or(no_perm),
         process,

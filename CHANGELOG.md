@@ -17,13 +17,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Modules `tui`, `tui_common`, `watch`, `output`, `services` are no longer
   part of the library API (moved into the binary crate).
 - Modules `dns`, `docker`, `platform` are now `pub(crate)`.
+- `Connection::local` and `Connection::remote` now carry raw addresses
+  (e.g. `[::1]:80`). The CLI still prints `localhost:80` / `*:80` via
+  `compact_addr` at render time.
 
 ### Added
 
 - `FromStr` impls for `Proto`, `State`, `SortKey`.
 - `ParseEnumError` returned by those `FromStr` impls.
+- `docker_proxy_service` replaces `resolve_docker_name` and returns
+  just the service name.
 - `#[non_exhaustive]` on `Proto`, `State`, `Error`, `Summary`, `ConfigError`,
   `FdUsage`, `ParseEnumError`, `SortKey`.
+
+### Removed
+
+- `NO_PERMISSION`, `Connection::state_str`, `Connection::process_display`,
+  `format_process_text` (CLI display helpers; now binary-only).
+
+### Fixed
+
+- Docker socket reads now have a 2s read/write timeout.
+- `Connection::text_matches` now lowercases the query internally
+  (previously required the caller to pre-lowercase or silently missed).
 
 ## [0.2.0] - 2026-04-19
 

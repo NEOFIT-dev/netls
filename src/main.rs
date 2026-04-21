@@ -615,8 +615,8 @@ fn print_diff_grouped(
             println!(
                 "{sign}    1x  {} {} → {} {}  ({})",
                 c.proto,
-                c.local,
-                c.remote,
+                netls::compact_addr(&c.local),
+                netls::compact_addr(&c.remote),
                 display::state_str(c),
                 proc
             );

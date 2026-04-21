@@ -3,7 +3,7 @@ use libproc::libproc::net_info::SocketInfo;
 use libproc::libproc::proc_pid;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
-use crate::{Connection, Error, Proto, Result, State, compact_addr};
+use crate::{Connection, Error, Proto, Result, State};
 
 // proc_pidfdinfo is not wrapped cleanly in libproc 0.14.11 - call it directly.
 // proc_fileinfo C layout: fi_openflags(4) + fi_status(4) + fi_offset(8) + fi_type(4) +
@@ -229,7 +229,7 @@ unsafe fn format_addr(ipv6: bool, addr_ptr: *const u8, port: i32) -> String {
         port_u.to_string()
     };
 
-    let raw = if ipv6 {
+    if ipv6 {
         let bytes = unsafe { *(addr_ptr as *const [u8; 16]) };
         let ip = Ipv6Addr::from(bytes);
         format!("[{ip}]:{port_str}")
@@ -237,6 +237,5 @@ unsafe fn format_addr(ipv6: bool, addr_ptr: *const u8, port: i32) -> String {
         let s_addr = unsafe { *(addr_ptr.add(12) as *const u32) };
         let ip = Ipv4Addr::from(u32::from_be(s_addr));
         format!("{ip}:{port_str}")
-    };
-    compact_addr(&raw)
+    }
 }

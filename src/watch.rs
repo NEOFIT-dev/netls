@@ -12,8 +12,8 @@ use crossterm::{
 use owo_colors::OwoColorize;
 
 use netls::{
-    Connection, Filter, diff_connections, resolve_proxy_origins, snapshot, snapshot_all,
-    snapshot_with_containers,
+    Connection, Filter, compact_addr, diff_connections, resolve_proxy_origins, snapshot,
+    snapshot_all, snapshot_with_containers,
 };
 
 use crate::display::{format_process_text, state_str};
@@ -443,8 +443,8 @@ fn fmt_row(
     let base = format!(
         "{}  {}  {}  {}  {}  {}",
         fit(&c.proto.to_string(), COL_PROTO),
-        fit(&c.local, COL_LOCAL),
-        fit(&c.remote, COL_REMOTE),
+        fit(&compact_addr(&c.local), COL_LOCAL),
+        fit(&compact_addr(&c.remote), COL_REMOTE),
         fit(&state_str(c), COL_STATE),
         fit(
             &c.pid.map_or_else(|| "?".to_string(), |p| p.to_string()),
