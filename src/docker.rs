@@ -42,8 +42,9 @@ pub fn container_ip_to_service() -> HashMap<String, String> {
 
 /// Build a map of host published port → container name.
 /// Used on platforms where container namespaces are not accessible (e.g. macOS).
+#[cfg(target_os = "macos")]
 #[must_use]
-pub fn container_published_ports() -> HashMap<u16, String> {
+pub(crate) fn container_published_ports() -> HashMap<u16, String> {
     list_containers()
         .ok()
         .map(|containers| {
@@ -66,6 +67,7 @@ struct ContainerInfo {
     id: String,
     name: String,
     ips: Vec<String>,
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     published_ports: Vec<u16>,
 }
 

@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::Connection;
+use netls::Connection;
 
 /// Render `conns` as JSON to stdout - one object per line, or a single
 /// pretty-printed object per connection when `pretty` is `true`.
@@ -22,7 +22,7 @@ pub fn print_conns(conns: &[Connection], pretty: bool) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Connection, Proto, State};
+    use netls::{Connection, Proto, State};
 
     fn make_conn() -> Connection {
         Connection {

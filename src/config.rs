@@ -342,6 +342,7 @@ fn check_enum(
 // ── Error ─────────────────────────────────────────────────────────────────────
 
 /// Errors returned by the config loader.
+#[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
     /// TOML failed to parse or did not match the schema.

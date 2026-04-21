@@ -17,10 +17,11 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState},
 };
 
-use crate::{
+use netls::{
     Connection, Filter, NO_PERMISSION, State, diff_connections, format_process_text, snapshot,
-    tui_common::TerminalGuard,
 };
+
+use crate::tui_common::TerminalGuard;
 
 const REFRESH_SECS: u64 = 2;
 
@@ -67,8 +68,8 @@ impl App {
         self.closed_conns = closed_conns;
 
         if self.resolve_proxy {
-            match crate::snapshot_all() {
-                Ok(all) => self.origins = crate::resolve_proxy_origins(&all),
+            match netls::snapshot_all() {
+                Ok(all) => self.origins = netls::resolve_proxy_origins(&all),
                 Err(e) => eprintln!("netls: warning: failed to resolve proxy origins: {e}"),
             }
         }
@@ -113,7 +114,7 @@ impl App {
 /// # Errors
 ///
 /// Fails if stdout is not a TTY (cannot enable raw mode), if the terminal
-/// backend errors out, or if the underlying [`crate::snapshot`] call fails.
+/// backend errors out, or if the underlying [`netls::snapshot`] call fails.
 pub fn run(filter: Filter, resolve_proxy: bool) -> Result<()> {
     enable_raw_mode()?;
     execute!(io::stdout(), EnterAlternateScreen)?;
@@ -237,7 +238,7 @@ fn draw_table(f: &mut Frame, app: &mut App, area: ratatui::layout::Rect) {
     let closed_keys: HashSet<String> = app
         .closed_conns
         .iter()
-        .map(super::Connection::key)
+        .map(Connection::key)
         .collect();
 
     let rows: Vec<Row> = visible

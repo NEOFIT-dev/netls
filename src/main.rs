@@ -1,6 +1,14 @@
+mod output;
+mod services;
+mod tui;
+mod tui_common;
+mod watch;
+
 use anyhow::Result;
 use clap::{CommandFactory, FromArgMatches, Parser, parser::ValueSource};
-use netls::{Filter, config, watch::WatchOutput};
+use netls::{Filter, config};
+
+use crate::watch::WatchOutput;
 
 #[cfg(unix)]
 use std::process;
@@ -412,7 +420,7 @@ fn cmd_init_config(target: Option<&std::path::Path>, force: bool) -> Result<()> 
 }
 
 fn cmd_kill_port(port: u16, force: bool) -> Result<()> {
-    let filter = Filter::default().port(port).state("listen");
+    let filter = Filter::default().port(port).state(netls::State::Listen);
     let listeners: Vec<_> = netls::snapshot(&filter)?
         .into_iter()
         .filter(|c| c.local.ends_with(&format!(":{port}")))
@@ -456,7 +464,7 @@ fn cmd_kill_port(port: u16, force: bool) -> Result<()> {
 }
 
 fn cmd_check_port(port: u16) -> Result<()> {
-    let filter = Filter::default().port(port).state("listen");
+    let filter = Filter::default().port(port).state(netls::State::Listen);
     let listeners: Vec<_> = netls::snapshot(&filter)?
         .into_iter()
         .filter(|c| c.local.ends_with(&format!(":{port}")))
@@ -484,7 +492,7 @@ fn cmd_check_port(port: u16) -> Result<()> {
 fn cmd_wait_for(port: u16, timeout_secs: u64) -> Result<()> {
     use std::time::{Duration, Instant};
     let deadline = Instant::now() + Duration::from_secs(timeout_secs);
-    let filter = Filter::default().port(port).state("listen");
+    let filter = Filter::default().port(port).state(netls::State::Listen);
     eprint!("waiting for port {port}");
     loop {
         let listeners: Vec<_> = netls::snapshot(&filter)?
@@ -643,27 +651,6 @@ fn stable_addr(addr: &str) -> String {
 }
 
 fn build_filter(cli: &Cli) -> Result<Filter> {
-    if let Some(ref s) = cli.state {
-        let lower = s.to_lowercase();
-        if !netls::VALID_STATES.contains(&lower.as_str()) {
-            anyhow::bail!(
-                "invalid --state value {:?}. Valid values: {}",
-                s,
-                netls::VALID_STATES.join(", ")
-            );
-        }
-    }
-    if let Some(ref p) = cli.proto {
-        let lower = p.to_lowercase();
-        if !netls::VALID_PROTOS.contains(&lower.as_str()) {
-            anyhow::bail!(
-                "invalid --proto value {:?}. Valid values: {}",
-                p,
-                netls::VALID_PROTOS.join(", ")
-            );
-        }
-    }
-
     let mut f = Filter::default();
     if let Some(port) = cli.port {
         f = f.port(port);
@@ -675,10 +662,10 @@ fn build_filter(cli: &Cli) -> Result<Filter> {
         f = f.process(n.as_str());
     }
     if let Some(ref s) = cli.state {
-        f = f.state(s.as_str());
+        f = f.state(s.parse().map_err(anyhow::Error::from)?);
     }
     if let Some(ref p) = cli.proto {
-        f = f.proto(p.as_str());
+        f = f.proto(p.parse().map_err(anyhow::Error::from)?);
     }
     if cli.no_loopback {
         f = f.no_loopback();
@@ -690,7 +677,7 @@ fn build_filter(cli: &Cli) -> Result<Filter> {
         f = f.ipv6_only();
     }
     if cli.listen {
-        f = f.state("listen");
+        f = f.state(netls::State::Listen);
     }
     // By default hide Unix sockets - they dominate the output and are rarely useful.
     // Show them with --all or --proto unix.
@@ -735,7 +722,7 @@ fn main() -> Result<()> {
         .collect();
     let has_port_overrides = !port_overrides.is_empty();
     if has_port_overrides {
-        netls::services::set_user_overrides(port_overrides);
+        services::set_user_overrides(port_overrides);
     }
 
     // [ports] without --service-names is dead weight: the overrides load but
@@ -862,7 +849,7 @@ fn main() -> Result<()> {
 
     if cli.summary {
         let conns = netls::snapshot(&filter)?;
-        netls::output::summary::print(&conns);
+        output::summary::print(&conns);
         if let Some(threshold) = cli.warn_timewait {
             let tw = conns
                 .iter()
@@ -879,7 +866,7 @@ fn main() -> Result<()> {
 
     if let Some(n) = cli.top {
         let conns = netls::snapshot(&filter)?;
-        netls::output::summary::print_top(&conns, n);
+        output::summary::print_top(&conns, n);
         return Ok(());
     }
 
@@ -890,14 +877,14 @@ fn main() -> Result<()> {
     }
 
     if cli.tui {
-        netls::tui::run(filter, rp)?;
+        tui::run(filter, rp)?;
     } else if let Some(interval) = cli.watch {
         let mode = if cli.json {
             WatchOutput::Json
         } else {
             WatchOutput::Table
         };
-        netls::watch::run(&filter, interval, &mode, rp, cli.containers)?;
+        watch::run(&filter, interval, &mode, rp, cli.containers)?;
     } else {
         let mut conns = if cli.containers {
             netls::snapshot_with_containers(&filter)?
@@ -923,19 +910,20 @@ fn main() -> Result<()> {
             netls::enrich_fd(&mut conns);
         }
         if let Some(ref col) = cli.sort {
-            netls::sort_connections(&mut conns, col);
+            let key: netls::SortKey = col.parse().map_err(anyhow::Error::from)?;
+            netls::sort_connections(&mut conns, key);
         }
 
         if let Some(ref field) = cli.group_by {
-            netls::output::grouped::print_conns(&conns, field)?;
+            output::grouped::print_conns(&conns, field)?;
         } else if cli.json {
-            netls::output::json::print_conns(&conns, cli.pretty)?;
+            output::json::print_conns(&conns, cli.pretty)?;
         } else if cli.csv {
-            netls::output::csv::print_conns(&conns)?;
+            output::csv::print_conns(&conns)?;
         } else {
-            netls::output::table::print_conns(
+            output::table::print_conns(
                 &conns,
-                netls::output::table::TableOptions {
+                output::table::TableOptions {
                     resolve_proxy: rp,
                     show_queues: cli.queues,
                     service_names: cli.service_names,

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::collections::HashMap;
 
-use crate::Connection;
+use netls::Connection;
 
 /// Group `conns` by `field` (`remote-ip`, `process`, `port`, or `proto`) and
 /// print counts per group to stdout.
@@ -10,11 +10,11 @@ use crate::Connection;
 ///
 /// Bails when `field` is not one of the four supported values.
 pub fn print_conns(conns: &[Connection], field: &str) -> Result<()> {
-    if !crate::VALID_GROUP_BY.contains(&field) {
+    if !netls::VALID_GROUP_BY.contains(&field) {
         anyhow::bail!(
             "invalid --group-by value {:?}. Valid values: {}",
             field,
-            crate::VALID_GROUP_BY.join(", ")
+            netls::VALID_GROUP_BY.join(", ")
         );
     }
 

@@ -274,10 +274,10 @@ netls = "0.1"
 ```
 
 ```rust
-use netls::{Filter, snapshot};
+use netls::{Filter, Proto, State, snapshot};
 
 fn main() -> anyhow::Result<()> {
-    let filter = Filter::default().proto("tcp").state("ESTABLISHED");
+    let filter = Filter::default().proto(Proto::Tcp).state(State::Established);
     let connections = snapshot(&filter)?;
 
     for conn in connections {

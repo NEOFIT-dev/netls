@@ -11,14 +11,17 @@ use crossterm::{
 };
 use owo_colors::OwoColorize;
 
-use crate::{
+use netls::{
     Connection, Filter, diff_connections, format_process_text, resolve_proxy_origins, snapshot,
-    snapshot_all, snapshot_with_containers, tui_common::TerminalGuard,
+    snapshot_all, snapshot_with_containers,
 };
+
+use crate::tui_common::TerminalGuard;
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 /// Output style for the [`run`] watch loop.
+#[non_exhaustive]
 #[allow(missing_docs)]
 pub enum WatchOutput {
     Table,
@@ -31,7 +34,7 @@ pub enum WatchOutput {
 /// # Errors
 ///
 /// Fails if stdout is not a TTY (table mode cannot enable raw mode for the
-/// alternate screen) or if [`crate::snapshot`] errors on a refresh.
+/// alternate screen) or if [`netls::snapshot`] errors on a refresh.
 pub fn run(
     filter: &Filter,
     interval_secs: u64,

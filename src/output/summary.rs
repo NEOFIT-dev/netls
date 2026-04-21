@@ -1,4 +1,4 @@
-use crate::{Connection, summary, top_connections};
+use netls::{Connection, summary, top_connections};
 
 /// Print a per-protocol/state summary of `conns` to stdout (`--summary`).
 pub fn print(conns: &[Connection]) {

@@ -9,23 +9,12 @@
 
 /// Configuration file (TOML) loading: `[defaults]`, `[profiles.<name>]`, `[ports]`.
 pub mod config;
-/// Reverse-DNS resolution helpers.
-pub mod dns;
-/// Docker container metadata for connection enrichment.
-pub mod docker;
-/// Output renderers (table, JSON, CSV, summary, grouped).
-pub mod output;
-/// Per-platform connection collection (Linux `/proc`, macOS `libproc`).
-pub mod platform;
-/// Port → service-name resolution: user `[ports]` overrides → curated built-in
-/// map → `/etc/services` (Unix only; empty layer elsewhere).
-pub mod services;
-/// Interactive `--tui` mode.
-pub mod tui;
-/// Shared helpers used by both `--tui` and `--watch` modes.
-pub mod tui_common;
-/// Live `--watch` mode (refresh + diff).
-pub mod watch;
+/// Reverse-DNS resolution helpers (internal; re-exported as [`resolve_dns`]).
+pub(crate) mod dns;
+/// Docker container metadata; wrapped by [`snapshot_with_containers`].
+pub(crate) mod docker;
+/// Per-platform connection collection; wrapped by [`snapshot`].
+pub(crate) mod platform;
 
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -96,15 +85,14 @@ pub fn enrich_cmdline(_conns: &mut [Connection]) {}
 /// On macOS: uses `listpidinfo::<ListFDs>` and `getrlimit`.
 #[cfg(target_os = "linux")]
 pub fn enrich_fd(conns: &mut [Connection]) {
-    let mut cache: std::collections::HashMap<u32, (usize, usize)> =
-        std::collections::HashMap::new();
+    let mut cache: std::collections::HashMap<u32, FdUsage> = std::collections::HashMap::new();
     for c in conns.iter_mut() {
         let Some(pid) = c.pid else { continue };
         let usage = cache.entry(pid).or_insert_with(|| {
             let open =
                 std::fs::read_dir(format!("/proc/{pid}/fd")).map_or(0, std::iter::Iterator::count);
-            let limit = read_fd_limit(pid).unwrap_or(usize::MAX);
-            (open, limit)
+            let soft_limit = read_fd_limit(pid).unwrap_or(usize::MAX);
+            FdUsage { open, soft_limit }
         });
         c.fd_usage = Some(*usage);
     }
@@ -298,6 +286,7 @@ pub const NO_PERMISSION: &str = "-";
 // ── Errors ────────────────────────────────────────────────────────────────────
 
 /// Errors returned by `netls` library functions.
+#[non_exhaustive]
 #[derive(Debug, Error)]
 #[allow(missing_docs)]
 pub enum Error {
@@ -315,6 +304,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 /// Transport protocol of a connection.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[allow(missing_docs)]
@@ -334,8 +324,25 @@ impl fmt::Display for Proto {
     }
 }
 
+impl std::str::FromStr for Proto {
+    type Err = ParseEnumError;
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "tcp" => Ok(Proto::Tcp),
+            "udp" => Ok(Proto::Udp),
+            "unix" => Ok(Proto::Unix),
+            _ => Err(ParseEnumError {
+                kind: "proto",
+                value: s.to_string(),
+                allowed: VALID_PROTOS,
+            }),
+        }
+    }
+}
+
 /// TCP connection state. Mirrors the standard TCP state machine
 /// (RFC 793). Only meaningful for `Proto::Tcp`.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 #[allow(missing_docs)]
@@ -372,6 +379,57 @@ impl fmt::Display for State {
     }
 }
 
+impl std::str::FromStr for State {
+    type Err = ParseEnumError;
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "established" => Ok(State::Established),
+            "listen" => Ok(State::Listen),
+            "syn_sent" => Ok(State::SynSent),
+            "syn_recv" => Ok(State::SynRecv),
+            "fin_wait1" => Ok(State::FinWait1),
+            "fin_wait2" => Ok(State::FinWait2),
+            "time_wait" => Ok(State::TimeWait),
+            "close" => Ok(State::Close),
+            "close_wait" => Ok(State::CloseWait),
+            "last_ack" => Ok(State::LastAck),
+            "closing" => Ok(State::Closing),
+            _ => Err(ParseEnumError {
+                kind: "state",
+                value: s.to_string(),
+                allowed: VALID_STATES,
+            }),
+        }
+    }
+}
+
+/// Error returned when a string cannot be parsed into one of the
+/// library's enum types (`Proto`, `State`, `SortKey`).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseEnumError {
+    /// Name of the target enum (e.g. `"proto"`, `"state"`).
+    pub kind: &'static str,
+    /// The input string that failed to parse.
+    pub value: String,
+    /// Accepted lowercase spellings.
+    pub allowed: &'static [&'static str],
+}
+
+impl fmt::Display for ParseEnumError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "invalid {} value {:?}. Valid values: {}",
+            self.kind,
+            self.value,
+            self.allowed.join(", ")
+        )
+    }
+}
+
+impl std::error::Error for ParseEnumError {}
+
 /// A single network connection.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Connection {
@@ -399,8 +457,9 @@ pub struct Connection {
     /// Send queue size in bytes (from /proc/net/tcp). None for UDP/Unix.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub send_q: Option<u32>,
-    /// Socket inode number - used internally to find the fd for age calculation. Not serialized.
+    /// Internal. Not part of the stable public API.
     #[serde(skip)]
+    #[doc(hidden)]
     pub inode: Option<u64>,
     /// Approximate connection age in seconds. Populated only with --age.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -411,9 +470,21 @@ pub struct Connection {
     /// systemd unit name, e.g. "nginx.service". Populated only with --systemd.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub systemd_unit: Option<String>,
-    /// Open fd count and soft limit, e.g. (42, 1024). Populated only with --fd.
+    /// Open file-descriptor usage. Populated only with --fd.
     #[serde(skip)]
-    pub fd_usage: Option<(usize, usize)>,
+    pub fd_usage: Option<FdUsage>,
+}
+
+/// Open file descriptors and the soft limit for a process.
+/// Populated on a [`Connection`] by [`enrich_fd`].
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FdUsage {
+    /// Currently open file-descriptor count.
+    pub open: usize,
+    /// Soft limit from `RLIMIT_NOFILE` / `/proc/<pid>/limits`,
+    /// or [`usize::MAX`] when unreadable.
+    pub soft_limit: usize,
 }
 
 impl Connection {
@@ -462,16 +533,16 @@ impl Connection {
 /// Builder-style filter for [`snapshot`].
 ///
 /// ```
-/// use netls::Filter;
-/// let f = Filter::default().proto("tcp").state("listen");
+/// use netls::{Filter, Proto, State};
+/// let f = Filter::default().proto(Proto::Tcp).state(State::Listen);
 /// ```
 #[derive(Default)]
 pub struct Filter {
     port: Option<u16>,
     pid: Option<u32>,
     process: Option<String>,
-    state: Option<String>,
-    proto: Option<String>,
+    state: Option<State>,
+    proto: Option<Proto>,
     no_loopback: bool,
     ipv4_only: bool,
     ipv6_only: bool,
@@ -500,17 +571,17 @@ impl Filter {
         self
     }
 
-    /// Filter by connection state (e.g. `"listen"`, `"established"`). Case-insensitive.
+    /// Filter by connection state.
     #[must_use]
-    pub fn state(mut self, state: impl Into<String>) -> Self {
-        self.state = Some(state.into().to_lowercase());
+    pub fn state(mut self, state: State) -> Self {
+        self.state = Some(state);
         self
     }
 
-    /// Filter by protocol (`"tcp"`, `"udp"`, `"unix"`). Case-insensitive.
+    /// Filter by protocol.
     #[must_use]
-    pub fn proto(mut self, proto: impl Into<String>) -> Self {
-        self.proto = Some(proto.into().to_lowercase());
+    pub fn proto(mut self, proto: Proto) -> Self {
+        self.proto = Some(proto);
         self
     }
 
@@ -566,24 +637,55 @@ pub fn snapshot_all() -> Result<Vec<Connection>> {
     platform::get_connections()
 }
 
-/// Sort connections by the given column name.
-/// Valid values: "proto", "local", "remote", "state", "pid", "process", "port".
-/// Unknown column - no-op.
-pub fn sort_connections(conns: &mut [Connection], by: &str) {
+/// Sort connections in-place by one of the supported keys.
+pub fn sort_connections(conns: &mut [Connection], by: SortKey) {
     match by {
-        "proto" => conns.sort_by_key(|c| c.proto),
-        "local" => conns.sort_by(|a, b| a.local.cmp(&b.local)),
-        "remote" => conns.sort_by(|a, b| a.remote.cmp(&b.remote)),
-        "state" => conns.sort_by_key(|c| c.state),
-        "pid" => conns.sort_by_key(|c| c.pid),
-        "process" => conns.sort_by(|a, b| {
+        SortKey::Proto => conns.sort_by_key(|c| c.proto),
+        SortKey::Local => conns.sort_by(|a, b| a.local.cmp(&b.local)),
+        SortKey::Remote => conns.sort_by(|a, b| a.remote.cmp(&b.remote)),
+        SortKey::State => conns.sort_by_key(|c| c.state),
+        SortKey::Pid => conns.sort_by_key(|c| c.pid),
+        SortKey::Process => conns.sort_by(|a, b| {
             a.process
                 .as_deref()
                 .unwrap_or("")
                 .cmp(b.process.as_deref().unwrap_or(""))
         }),
-        "port" => conns.sort_by_key(|c| extract_port(&c.local).unwrap_or(0)),
-        _ => {}
+        SortKey::Port => conns.sort_by_key(|c| extract_port(&c.local).unwrap_or(0)),
+    }
+}
+
+/// Column key accepted by [`sort_connections`].
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(missing_docs)]
+pub enum SortKey {
+    Proto,
+    Local,
+    Remote,
+    State,
+    Pid,
+    Process,
+    Port,
+}
+
+impl std::str::FromStr for SortKey {
+    type Err = ParseEnumError;
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "proto" => Ok(SortKey::Proto),
+            "local" => Ok(SortKey::Local),
+            "remote" => Ok(SortKey::Remote),
+            "state" => Ok(SortKey::State),
+            "pid" => Ok(SortKey::Pid),
+            "process" => Ok(SortKey::Process),
+            "port" => Ok(SortKey::Port),
+            _ => Err(ParseEnumError {
+                kind: "sort",
+                value: s.to_string(),
+                allowed: VALID_SORT,
+            }),
+        }
     }
 }
 
@@ -630,6 +732,7 @@ pub fn summary(conns: &[Connection]) -> Summary {
 
 /// Aggregated counts of connections by protocol and TCP state.
 /// Returned by [`summary`].
+#[non_exhaustive]
 #[derive(Default)]
 #[allow(missing_docs)]
 pub struct Summary {
@@ -869,16 +972,15 @@ fn apply_filter(connections: Vec<Connection>, filter: &Filter) -> Vec<Connection
                     _ => return false,
                 }
             }
-            if let Some(ref proto) = filter.proto
-                && c.proto.to_string() != *proto
+            if let Some(proto) = filter.proto
+                && c.proto != proto
             {
                 return false;
             }
-            if let Some(ref state) = filter.state {
-                match &c.state {
-                    Some(s) if s.to_string().eq_ignore_ascii_case(state) => {}
-                    _ => return false,
-                }
+            if let Some(state) = filter.state
+                && c.state != Some(state)
+            {
+                return false;
             }
             true
         })
@@ -965,7 +1067,7 @@ mod tests {
 
     #[test]
     fn filter_by_proto_tcp() {
-        let conns = apply_filter(sample(), &Filter::default().proto("tcp"));
+        let conns = apply_filter(sample(), &Filter::default().proto(Proto::Tcp));
         assert_eq!(conns.len(), 3);
         assert!(conns.iter().all(|c| c.proto == Proto::Tcp));
     }
@@ -978,14 +1080,17 @@ mod tests {
 
     #[test]
     fn filter_by_state_listen() {
-        let conns = apply_filter(sample(), &Filter::default().state("listen"));
+        let conns = apply_filter(sample(), &Filter::default().state(State::Listen));
         assert_eq!(conns.len(), 2);
         assert!(conns.iter().all(|c| c.state == Some(State::Listen)));
     }
 
     #[test]
     fn filter_combined_proto_and_state() {
-        let conns = apply_filter(sample(), &Filter::default().proto("tcp").state("listen"));
+        let conns = apply_filter(
+            sample(),
+            &Filter::default().proto(Proto::Tcp).state(State::Listen),
+        );
         assert_eq!(conns.len(), 2);
     }
 
@@ -1242,7 +1347,7 @@ mod tests {
                 None,
             ),
         ];
-        sort_connections(&mut conns, "port");
+        sort_connections(&mut conns, SortKey::Port);
         assert_eq!(conns[0].local, "0.0.0.0:22");
         assert_eq!(conns[1].local, "0.0.0.0:80");
         assert_eq!(conns[2].local, "0.0.0.0:443");
@@ -1260,18 +1365,14 @@ mod tests {
                 None,
             ),
         ];
-        sort_connections(&mut conns, "proto");
+        sort_connections(&mut conns, SortKey::Proto);
         assert_eq!(conns[0].proto, Proto::Tcp);
         assert_eq!(conns[1].proto, Proto::Udp);
     }
 
     #[test]
-    fn sort_unknown_column_is_noop() {
-        let mut conns = sample();
-        let locals_before: Vec<_> = conns.iter().map(|c| c.local.clone()).collect();
-        sort_connections(&mut conns, "nonexistent");
-        let locals_after: Vec<_> = conns.iter().map(|c| c.local.clone()).collect();
-        assert_eq!(locals_before, locals_after);
+    fn sort_key_rejects_unknown_column() {
+        assert!("nonexistent".parse::<SortKey>().is_err());
     }
 
     // ── filter ipv4/ipv6/no_unix ──────────────────────────────────────────────

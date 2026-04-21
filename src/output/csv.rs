@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::Connection;
+use netls::Connection;
 
 /// Render `conns` as CSV to stdout.
 ///
@@ -36,7 +36,7 @@ fn write_conns<W: std::io::Write>(w: &mut csv::Writer<W>, conns: &[Connection]) 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Connection, Proto, State};
+    use netls::{Connection, Proto, State};
 
     fn make_conn() -> Connection {
         Connection {

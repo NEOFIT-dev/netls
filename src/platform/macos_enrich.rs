@@ -96,7 +96,7 @@ pub fn enrich_fd(conns: &mut [Connection]) {
             usize::MAX
         }
     };
-    let mut cache: HashMap<u32, (usize, usize)> = HashMap::new();
+    let mut cache: HashMap<u32, crate::FdUsage> = HashMap::new();
     for c in conns.iter_mut() {
         let Some(pid) = c.pid else { continue };
         let usage = cache.entry(pid).or_insert_with(|| {
@@ -105,7 +105,10 @@ pub fn enrich_fd(conns: &mut [Connection]) {
             let open = proc_pid::pidinfo::<BSDInfo>(pid as i32, 0)
                 .map(|info| info.pbi_nfiles as usize)
                 .unwrap_or(0);
-            (open, limit)
+            crate::FdUsage {
+                open,
+                soft_limit: limit,
+            }
         });
         c.fd_usage = Some(*usage);
     }

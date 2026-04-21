@@ -10,10 +10,12 @@ use tabled::settings::Style;
 use tabled::settings::object::Columns;
 use tabled::settings::width::Truncate;
 
-use crate::{
-    Connection, NO_PERMISSION, State, fmt_age, format_process_text, resolve_docker_name,
-    resolve_proxy_origins, services, snapshot_all,
+use netls::{
+    Connection, FdUsage, NO_PERMISSION, State, fmt_age, format_process_text, resolve_docker_name,
+    resolve_proxy_origins, snapshot_all,
 };
+
+use crate::services;
 
 // ── Options ───────────────────────────────────────────────────────────────────
 
@@ -115,7 +117,11 @@ fn render_conns(conns: &[Connection], opts: TableOptions) -> Result<String> {
         row.push(base.process);
         if show_fd {
             let fd_str = match c.fd_usage {
-                Some((open, limit)) if limit != usize::MAX => {
+                Some(FdUsage {
+                    open,
+                    soft_limit: limit,
+                    ..
+                }) if limit != usize::MAX => {
                     let pct = open * 100 / limit.max(1);
                     if pct >= 90 {
                         format!("{open}/{limit}").bright_red().to_string()
@@ -125,7 +131,7 @@ fn render_conns(conns: &[Connection], opts: TableOptions) -> Result<String> {
                         format!("{open}/{limit}")
                     }
                 }
-                Some((open, _)) => open.to_string(),
+                Some(FdUsage { open, .. }) => open.to_string(),
                 None => "-".to_string(),
             };
             row.push(fd_str);

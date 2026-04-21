@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- `Filter::proto` and `Filter::state` now take `Proto` and `State` enums
+  instead of strings.
+- `sort_connections` now takes a `SortKey` enum instead of a string.
+- `Connection::fd_usage` changed from `Option<(usize, usize)>` to
+  `Option<FdUsage>` with named `open` and `soft_limit` fields.
+- Modules `tui`, `tui_common`, `watch`, `output`, `services` are no longer
+  part of the library API (moved into the binary crate).
+- Modules `dns`, `docker`, `platform` are now `pub(crate)`.
+
+### Added
+
+- `FromStr` impls for `Proto`, `State`, `SortKey`.
+- `ParseEnumError` returned by those `FromStr` impls.
+- `#[non_exhaustive]` on `Proto`, `State`, `Error`, `Summary`, `ConfigError`,
+  `FdUsage`, `ParseEnumError`, `SortKey`.
+
 ## [0.2.0] - 2026-04-19
 
 ### Added
