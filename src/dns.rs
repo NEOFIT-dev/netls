@@ -11,31 +11,50 @@ use crate::{Connection, Proto};
 
 /// Resolve remote IP addresses to hostnames in-place.
 /// Skips wildcard (`*`), loopback, and addresses that fail to resolve.
-/// May be slow - each unique remote IP triggers a reverse DNS lookup.
+/// All unique IPs are looked up concurrently under a single
+/// [`DNS_LOOKUP_TIMEOUT`] deadline, so total latency stays bounded
+/// regardless of how many connections are passed in.
 pub fn resolve_dns(conns: &mut [Connection]) {
     use std::collections::HashMap;
+    use std::sync::mpsc;
+    use std::time::Instant;
 
-    let mut cache: HashMap<String, String> = HashMap::new();
-
-    for c in conns.iter_mut() {
+    let mut pending: HashMap<String, mpsc::Receiver<String>> = HashMap::new();
+    for c in conns.iter() {
         if c.remote.ends_with(":*") || c.proto == Proto::Unix {
             continue;
         }
         if crate::is_loopback(&c.remote) {
             continue;
         }
-
-        let ip_part = extract_ip(&c.remote);
-        if ip_part.is_empty() {
+        let ip = extract_ip(&c.remote);
+        if ip.is_empty() || pending.contains_key(&ip) {
             continue;
         }
+        let (tx, rx) = mpsc::channel();
+        let ip_owned = ip.clone();
+        std::thread::spawn(move || {
+            let _ = tx.send(reverse_lookup_blocking(&ip_owned));
+        });
+        pending.insert(ip, rx);
+    }
 
-        let hostname = cache
-            .entry(ip_part.clone())
-            .or_insert_with(|| reverse_lookup(&ip_part));
+    let deadline = Instant::now() + DNS_LOOKUP_TIMEOUT;
+    let resolved: HashMap<String, String> = pending
+        .into_iter()
+        .map(|(ip, rx)| {
+            let timeout = deadline.saturating_duration_since(Instant::now());
+            let name = rx.recv_timeout(timeout).unwrap_or_else(|_| ip.clone());
+            (ip, name)
+        })
+        .collect();
 
-        if hostname != &ip_part {
-            c.remote = c.remote.replacen(&ip_part, hostname, 1);
+    for c in conns.iter_mut() {
+        let ip = extract_ip(&c.remote);
+        if let Some(name) = resolved.get(&ip)
+            && name != &ip
+        {
+            c.remote = c.remote.replacen(&ip, name, 1);
         }
     }
 }
@@ -54,23 +73,8 @@ fn extract_ip(addr: &str) -> String {
     }
 }
 
-/// Timeout for a single reverse DNS lookup.
+/// Shared deadline for the whole batch of lookups in [`resolve_dns`].
 const DNS_LOOKUP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
-
-/// Reverse DNS lookup via getnameinfo (Unix) or no-op (other platforms).
-/// Runs in a separate thread with a timeout to avoid blocking indefinitely.
-fn reverse_lookup(ip: &str) -> String {
-    let ip_owned = ip.to_string();
-    let (tx, rx) = std::sync::mpsc::channel();
-
-    std::thread::spawn(move || {
-        let result = reverse_lookup_blocking(&ip_owned);
-        let _ = tx.send(result);
-    });
-
-    rx.recv_timeout(DNS_LOOKUP_TIMEOUT)
-        .unwrap_or_else(|_| ip.to_string())
-}
 
 /// Blocking reverse DNS lookup - called inside a dedicated thread.
 fn reverse_lookup_blocking(ip: &str) -> String {

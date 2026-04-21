@@ -45,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker socket reads now have a 2s read/write timeout.
 - `Connection::text_matches` now lowercases the query internally
   (previously required the caller to pre-lowercase or silently missed).
+- `--resolve-dns` (`resolve_dns`) now runs lookups concurrently under a
+  single 2s deadline. Previous behaviour was 2s per unique IP in serial.
 
 ## [0.2.0] - 2026-04-19
 
