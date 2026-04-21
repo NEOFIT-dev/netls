@@ -175,7 +175,7 @@ struct BaseRow {
 fn build_base(
     c: &Connection,
     color: bool,
-    origins: &HashMap<String, String>,
+    origins: &HashMap<netls::ConnectionKey, String>,
     service_names: bool,
 ) -> BaseRow {
     let no_perm = no_permission(color);

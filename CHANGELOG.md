@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `snapshot_with_containers` now returns `SnapshotResult` (connections +
   warnings) instead of `Vec<Connection>`. Docker-side failures no longer
   print to stderr from inside the library.
+- `Connection::key` now returns a `ConnectionKey` newtype. Signatures of
+  `diff_connections` and `resolve_proxy_origins` updated accordingly.
 
 ### Added
 

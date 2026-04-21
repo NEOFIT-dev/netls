@@ -30,8 +30,8 @@ struct App {
     filter: Filter,
     resolve_proxy: bool,
     conns: Vec<Connection>,
-    origins: std::collections::HashMap<String, String>,
-    new_keys: HashSet<String>,
+    origins: std::collections::HashMap<netls::ConnectionKey, String>,
+    new_keys: HashSet<netls::ConnectionKey>,
     closed_conns: Vec<Connection>,
     table_state: TableState,
     // Inline filter
@@ -234,7 +234,7 @@ fn draw_table(f: &mut Frame, app: &mut App, area: ratatui::layout::Rect) {
         .style(Style::default().add_modifier(Modifier::BOLD | Modifier::UNDERLINED));
 
     let visible = app.visible_rows();
-    let closed_keys: HashSet<String> = app
+    let closed_keys: HashSet<netls::ConnectionKey> = app
         .closed_conns
         .iter()
         .map(Connection::key)
@@ -279,9 +279,9 @@ fn no_permission_cell() -> Cell<'static> {
 /// Build a single table row for the given connection.
 fn build_tui_row(
     c: &Connection,
-    origins: &std::collections::HashMap<String, String>,
-    closed_keys: &HashSet<String>,
-    new_keys: &HashSet<String>,
+    origins: &std::collections::HashMap<netls::ConnectionKey, String>,
+    closed_keys: &HashSet<netls::ConnectionKey>,
+    new_keys: &HashSet<netls::ConnectionKey>,
 ) -> Row<'static> {
     let key = c.key();
 

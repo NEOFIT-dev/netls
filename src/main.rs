@@ -524,8 +524,10 @@ fn cmd_diff(path: &std::path::Path, filter: &Filter) -> Result<()> {
         .map_err(|e| anyhow::anyhow!("invalid snapshot file: {e}"))?;
     let current = netls::snapshot(filter)?;
 
-    let saved_keys: HashSet<String> = saved.iter().map(netls::Connection::key).collect();
-    let curr_keys: HashSet<String> = current.iter().map(netls::Connection::key).collect();
+    let saved_keys: HashSet<netls::ConnectionKey> =
+        saved.iter().map(netls::Connection::key).collect();
+    let curr_keys: HashSet<netls::ConnectionKey> =
+        current.iter().map(netls::Connection::key).collect();
 
     let added: Vec<&netls::Connection> = current
         .iter()

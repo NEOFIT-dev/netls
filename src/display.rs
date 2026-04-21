@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use netls::Connection;
+use netls::{Connection, ConnectionKey};
 
 pub(crate) const NO_PERMISSION: &str = "-";
 
@@ -15,7 +15,7 @@ pub(crate) fn process_display(c: &Connection) -> &str {
 
 pub(crate) fn format_process_text<S: std::hash::BuildHasher>(
     c: &Connection,
-    origins: &HashMap<String, String, S>,
+    origins: &HashMap<ConnectionKey, String, S>,
 ) -> String {
     match origins.get(&c.key()) {
         Some(clients) => format!("{} <- {}", c.process.as_deref().unwrap_or("?"), clients),

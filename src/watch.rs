@@ -152,7 +152,7 @@ struct WatchState {
     prev_conns: Vec<Connection>,
     last_refresh: Instant,
     entries: Vec<(Connection, RowKind)>,
-    origins: HashMap<String, String>,
+    origins: HashMap<netls::ConnectionKey, String>,
     scroll: usize,
     max_visible: usize,
     needs_redraw: bool,
@@ -385,7 +385,7 @@ fn render(state: &mut WatchState, interval_secs: u64) -> Result<()> {
 
 fn print_table(
     entries: &[&(Connection, RowKind)],
-    origins: &HashMap<String, String>,
+    origins: &HashMap<netls::ConnectionKey, String>,
     term_cols: usize,
     max_visible: usize,
     scroll: usize,
@@ -439,7 +439,7 @@ fn print_table(
 
 fn fmt_row(
     c: &Connection,
-    origins: &HashMap<String, String>,
+    origins: &HashMap<netls::ConnectionKey, String>,
     w_proc: usize,
     containers: bool,
 ) -> String {
@@ -541,7 +541,7 @@ fn print_footer(editing: bool, filter_query: &str) {
 
 // ── JSON event emitter ────────────────────────────────────────────────────────
 
-fn emit_event(event: &str, c: &Connection, origins: &HashMap<String, String>) {
+fn emit_event(event: &str, c: &Connection, origins: &HashMap<netls::ConnectionKey, String>) {
     let proxy_origin = origins.get(&c.key());
     let result = match proxy_origin {
         Some(origin) => serde_json::to_string(c).map(|json| {

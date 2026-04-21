@@ -472,6 +472,30 @@ pub struct Connection {
     pub fd_usage: Option<FdUsage>,
 }
 
+/// Stable identity key for a [`Connection`].
+/// Internal representation is opaque; only [`Display`](fmt::Display),
+/// [`Hash`](std::hash::Hash), and equality are guaranteed.
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct ConnectionKey(String);
+
+impl fmt::Display for ConnectionKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl AsRef<str> for ConnectionKey {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::borrow::Borrow<str> for ConnectionKey {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
 /// Open file descriptors and the soft limit for a process.
 /// Populated on a [`Connection`] by [`enrich_fd`].
 #[non_exhaustive]
@@ -485,12 +509,11 @@ pub struct FdUsage {
 }
 
 impl Connection {
-    /// Unique identity key: `"proto|local|remote"`.
-    /// Used for diffing snapshots and proxy chain lookups.
-    /// Stable string key uniquely identifying this connection: `"proto|local|remote"`.
+    /// Stable identity key for this connection. Used as the lookup key in
+    /// [`diff_connections`] and [`resolve_proxy_origins`].
     #[must_use]
-    pub fn key(&self) -> String {
-        format!("{}|{}|{}", self.proto, self.local, self.remote)
+    pub fn key(&self) -> ConnectionKey {
+        ConnectionKey(format!("{}|{}|{}", self.proto, self.local, self.remote))
     }
 
     /// Returns true if `query` matches any visible field (case-insensitive).
@@ -738,7 +761,7 @@ pub struct Summary {
 ///
 /// Example: firefox → sing-box → 8.8.8.8:443
 /// The key is for the sing-box connection, the value is "firefox".
-pub fn resolve_proxy_origins(conns: &[Connection]) -> HashMap<String, String> {
+pub fn resolve_proxy_origins(conns: &[Connection]) -> HashMap<ConnectionKey, String> {
     let pid_listen_ports = build_listen_ports_map(conns);
     let port_clients = build_port_clients_map(conns);
 
@@ -902,9 +925,9 @@ pub fn docker_proxy_service(_c: &Connection) -> Option<String> {
 pub fn diff_connections(
     prev: &[Connection],
     curr: &[Connection],
-) -> (HashSet<String>, Vec<Connection>) {
-    let curr_keys: HashSet<String> = curr.iter().map(Connection::key).collect();
-    let prev_keys: HashSet<String> = prev.iter().map(Connection::key).collect();
+) -> (HashSet<ConnectionKey>, Vec<Connection>) {
+    let curr_keys: HashSet<ConnectionKey> = curr.iter().map(Connection::key).collect();
+    let prev_keys: HashSet<ConnectionKey> = prev.iter().map(Connection::key).collect();
     let new_keys = curr_keys.difference(&prev_keys).cloned().collect();
     let closed = prev
         .iter()
