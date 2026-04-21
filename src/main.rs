@@ -1,3 +1,4 @@
+mod display;
 mod output;
 mod services;
 mod tui;
@@ -616,7 +617,7 @@ fn print_diff_grouped(
                 c.proto,
                 c.local,
                 c.remote,
-                c.state_str(),
+                display::state_str(c),
                 proc
             );
         } else {
@@ -625,7 +626,7 @@ fn print_diff_grouped(
                 count,
                 c.proto,
                 endpoint,
-                c.state_str(),
+                display::state_str(c),
                 proc
             );
         }

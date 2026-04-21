@@ -280,9 +280,6 @@ pub fn fmt_age(secs: u64) -> String {
     }
 }
 
-/// Displayed when a connection's process/PID cannot be read (insufficient privileges).
-pub const NO_PERMISSION: &str = "-";
-
 // ── Errors ────────────────────────────────────────────────────────────────────
 
 /// Errors returned by `netls` library functions.
@@ -496,35 +493,23 @@ impl Connection {
         format!("{}|{}|{}", self.proto, self.local, self.remote)
     }
 
-    /// State as a display string, or `"-"` if absent.
-    #[must_use]
-    pub fn state_str(&self) -> String {
-        self.state
-            .map_or_else(|| "-".to_string(), |s| s.to_string())
-    }
-
-    /// Process name, or `NO_PERMISSION` if absent.
-    #[must_use]
-    pub fn process_display(&self) -> &str {
-        self.process.as_deref().unwrap_or(NO_PERMISSION)
-    }
-
-    /// Returns true if `query` (already lowercased) matches any visible field.
+    /// Returns true if `query` matches any visible field (case-insensitive).
     #[must_use]
     pub fn text_matches(&self, query: &str) -> bool {
         if query.is_empty() {
             return true;
         }
-        self.proto.to_string().contains(query)
-            || self.local.contains(query)
-            || self.remote.contains(query)
+        let q = query.to_ascii_lowercase();
+        self.proto.to_string().contains(&q)
+            || self.local.to_ascii_lowercase().contains(&q)
+            || self.remote.to_ascii_lowercase().contains(&q)
             || self
                 .state
-                .is_some_and(|s| s.to_string().to_ascii_lowercase().contains(query))
+                .is_some_and(|s| s.to_string().to_ascii_lowercase().contains(&q))
             || self
                 .process
                 .as_deref()
-                .is_some_and(|p| p.to_ascii_lowercase().contains(query))
+                .is_some_and(|p| p.to_ascii_lowercase().contains(&q))
     }
 }
 
@@ -697,7 +682,7 @@ pub fn top_connections(conns: &[Connection], n: usize) -> Vec<(String, usize)> {
     let counts = conns
         .iter()
         .fold(HashMap::<String, usize>::new(), |mut acc, c| {
-            let name = c.process.as_deref().unwrap_or(NO_PERMISSION).to_owned();
+            let name = c.process.as_deref().unwrap_or("-").to_owned();
             *acc.entry(name).or_insert(0) += 1;
             acc
         });
@@ -872,10 +857,12 @@ pub fn snapshot_with_containers(_filter: &Filter) -> Result<Vec<Connection>> {
 
 /// If the process is `docker-proxy`, resolve the container IP from its cmdline
 /// and return a label like `"docker-proxy (frontend)"`.
-/// Returns `None` if not applicable or resolution fails.
+/// For a `docker-proxy` connection, resolve the compose/container service
+/// name behind it. Returns `None` if the connection is not `docker-proxy`
+/// or if resolution fails (no PID, cmdline unreadable, daemon unreachable).
 #[cfg(target_os = "linux")]
 #[must_use]
-pub fn resolve_docker_name(c: &Connection) -> Option<String> {
+pub fn docker_proxy_service(c: &Connection) -> Option<String> {
     if c.process.as_deref() != Some("docker-proxy") {
         return None;
     }
@@ -883,31 +870,13 @@ pub fn resolve_docker_name(c: &Connection) -> Option<String> {
     let cmdline = std::fs::read(format!("/proc/{pid}/cmdline")).ok()?;
     let container_ip = docker::parse_container_ip(&cmdline)?;
     let map = docker::container_ip_to_service();
-    let service = map.get(&container_ip)?;
-    Some(format!("docker-proxy ({service})"))
+    map.get(&container_ip).cloned()
 }
 
 /// Always `None` on non-Linux platforms (Docker namespace lookup is Linux-only).
 #[cfg(not(target_os = "linux"))]
-pub fn resolve_docker_name(_c: &Connection) -> Option<String> {
+pub fn docker_proxy_service(_c: &Connection) -> Option<String> {
     None
-}
-
-/// Format the process column text, including proxy chain info when available.
-///
-/// Returns `"proxy <- client1, client2"` if the connection is proxied,
-/// otherwise returns the process name or [`NO_PERMISSION`] placeholder.
-pub fn format_process_text<S: std::hash::BuildHasher>(
-    c: &Connection,
-    origins: &HashMap<String, String, S>,
-) -> String {
-    match origins.get(&c.key()) {
-        Some(clients) => format!("{} <- {}", c.process.as_deref().unwrap_or("?"), clients),
-        None => c
-            .process
-            .clone()
-            .unwrap_or_else(|| NO_PERMISSION.to_string()),
-    }
 }
 
 /// Compute the diff between two connection snapshots.

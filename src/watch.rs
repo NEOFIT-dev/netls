@@ -12,10 +12,11 @@ use crossterm::{
 use owo_colors::OwoColorize;
 
 use netls::{
-    Connection, Filter, diff_connections, format_process_text, resolve_proxy_origins, snapshot,
-    snapshot_all, snapshot_with_containers,
+    Connection, Filter, diff_connections, resolve_proxy_origins, snapshot, snapshot_all,
+    snapshot_with_containers,
 };
 
+use crate::display::{format_process_text, state_str};
 use crate::tui_common::TerminalGuard;
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -180,10 +181,9 @@ impl WatchState {
         if self.filter_query.is_empty() {
             self.entries.iter().collect()
         } else {
-            let q = self.filter_query.to_ascii_lowercase();
             self.entries
                 .iter()
-                .filter(|(c, _)| c.text_matches(&q))
+                .filter(|(c, _)| c.text_matches(&self.filter_query))
                 .collect()
         }
     }
@@ -445,7 +445,7 @@ fn fmt_row(
         fit(&c.proto.to_string(), COL_PROTO),
         fit(&c.local, COL_LOCAL),
         fit(&c.remote, COL_REMOTE),
-        fit(&c.state_str(), COL_STATE),
+        fit(&state_str(c), COL_STATE),
         fit(
             &c.pid.map_or_else(|| "?".to_string(), |p| p.to_string()),
             COL_PID

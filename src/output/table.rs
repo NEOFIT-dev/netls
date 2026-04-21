@@ -10,11 +10,9 @@ use tabled::settings::Style;
 use tabled::settings::object::Columns;
 use tabled::settings::width::Truncate;
 
-use netls::{
-    Connection, FdUsage, NO_PERMISSION, State, fmt_age, format_process_text, resolve_docker_name,
-    resolve_proxy_origins, snapshot_all,
-};
+use netls::{Connection, FdUsage, State, fmt_age, resolve_proxy_origins, snapshot_all};
 
+use crate::display::{self, NO_PERMISSION, format_process_text};
 use crate::services;
 
 // ── Options ───────────────────────────────────────────────────────────────────
@@ -189,7 +187,7 @@ fn build_base(
         } else {
             text
         }
-    } else if let Some(docker_name) = resolve_docker_name(c) {
+    } else if let Some(docker_name) = display::docker_proxy_label(c) {
         docker_name
     } else if let Some(ref cl) = c.cmdline {
         cl.to_owned()

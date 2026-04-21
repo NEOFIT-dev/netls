@@ -17,10 +17,9 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState},
 };
 
-use netls::{
-    Connection, Filter, NO_PERMISSION, State, diff_connections, format_process_text, snapshot,
-};
+use netls::{Connection, Filter, State, diff_connections, snapshot};
 
+use crate::display::{NO_PERMISSION, format_process_text, state_str};
 use crate::tui_common::TerminalGuard;
 
 const REFRESH_SECS: u64 = 2;
@@ -79,9 +78,9 @@ impl App {
     }
 
     fn visible_rows(&self) -> Vec<&Connection> {
-        let q = self.filter_input.to_lowercase();
-        let mut rows: Vec<&Connection> = self.conns.iter().filter(|c| c.text_matches(&q)).collect();
-        rows.extend(self.closed_conns.iter().filter(|c| c.text_matches(&q)));
+        let q = &self.filter_input;
+        let mut rows: Vec<&Connection> = self.conns.iter().filter(|c| c.text_matches(q)).collect();
+        rows.extend(self.closed_conns.iter().filter(|c| c.text_matches(q)));
         rows
     }
 
@@ -295,7 +294,7 @@ fn build_tui_row(
     };
 
     let state_cell = if closed_keys.contains(&key) || new_keys.contains(&key) {
-        Cell::from(c.state_str()).style(row_style)
+        Cell::from(state_str(c)).style(row_style)
     } else {
         match c.state {
             Some(s) => Cell::from(s.to_string()).style(Style::default().fg(state_color(s))),

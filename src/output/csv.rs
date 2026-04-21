@@ -2,6 +2,8 @@ use anyhow::Result;
 
 use netls::Connection;
 
+use crate::display;
+
 /// Render `conns` as CSV to stdout.
 ///
 /// # Errors
@@ -19,7 +21,7 @@ fn write_conns<W: std::io::Write>(w: &mut csv::Writer<W>, conns: &[Connection]) 
 
     for c in conns {
         let proto = c.proto.to_string();
-        let state = c.state_str();
+        let state = display::state_str(c);
         let pid = c.pid.map(|p| p.to_string()).unwrap_or_default();
         w.write_record([
             &proto,
@@ -27,7 +29,7 @@ fn write_conns<W: std::io::Write>(w: &mut csv::Writer<W>, conns: &[Connection]) 
             &c.remote,
             &state,
             &pid,
-            c.process_display(),
+            display::process_display(c),
         ])?;
     }
     Ok(())
