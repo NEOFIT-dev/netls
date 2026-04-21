@@ -62,7 +62,7 @@ netls --port 8080               # filter by port
 netls --pid 1234                # filter by PID
 netls --process nginx           # filter by process name (case-insensitive substring)
 netls --state established       # filter by state
-netls --proto tcp               # filter by protocol: tcp, udp, unix
+netls --proto tcp               # filter by protocol: tcp, udp, unix, raw
 netls --ipv4                    # show only IPv4 connections
 netls --ipv6                    # show only IPv6 connections
 netls --no-loopback             # hide loopback connections (127.x and ::1)

@@ -40,7 +40,7 @@ pub const VALID_STATES: &[&str] = &[
 ];
 
 /// Protocols accepted by `--proto` and the `proto` config field.
-pub const VALID_PROTOS: &[&str] = &["tcp", "udp", "unix"];
+pub const VALID_PROTOS: &[&str] = &["tcp", "udp", "unix", "raw"];
 
 /// Columns accepted by `--sort` and the `sort` config field.
 pub const VALID_SORT: &[&str] = &[
@@ -310,6 +310,9 @@ pub enum Proto {
     Tcp,
     Udp,
     Unix,
+    /// Raw IP socket (ICMP, IGMP, custom protocols - `ping`, `traceroute`,
+    /// eBPF / security tools). The `state` field is always `None`.
+    Raw,
 }
 
 impl fmt::Display for Proto {
@@ -318,6 +321,7 @@ impl fmt::Display for Proto {
             Proto::Tcp => write!(f, "tcp"),
             Proto::Udp => write!(f, "udp"),
             Proto::Unix => write!(f, "unix"),
+            Proto::Raw => write!(f, "raw"),
         }
     }
 }
@@ -329,6 +333,7 @@ impl std::str::FromStr for Proto {
             "tcp" => Ok(Proto::Tcp),
             "udp" => Ok(Proto::Udp),
             "unix" => Ok(Proto::Unix),
+            "raw" => Ok(Proto::Raw),
             _ => Err(ParseEnumError {
                 kind: "proto",
                 value: s.to_string(),
@@ -734,6 +739,7 @@ pub fn summary(conns: &[Connection]) -> Summary {
             }
             Proto::Udp => s.udp_total += 1,
             Proto::Unix => s.unix_total += 1,
+            Proto::Raw => s.raw_total += 1,
         }
     }
     s
@@ -753,6 +759,7 @@ pub struct Summary {
     pub tcp_other: usize,
     pub udp_total: usize,
     pub unix_total: usize,
+    pub raw_total: usize,
 }
 
 /// For each external connection that passes through a local proxy, return the

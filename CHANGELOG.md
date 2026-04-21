@@ -32,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   daemon. Both the rootful (`/run/podman/podman.sock`) and rootless
   (`$XDG_RUNTIME_DIR/podman/podman.sock`) sockets are probed; results
   from Docker and Podman are merged.
+- `--proto raw` lists raw IP sockets (ICMP, IGMP, custom IP protocols)
+  used by `ping`, `traceroute`, and eBPF tools. Linux reads
+  `/proc/net/raw*`, macOS surfaces `SOCK_RAW` via libproc.
+- `Proto::Raw` variant and `Summary::raw_total` field.
 - `FromStr` impls for `Proto`, `State`, `SortKey`.
 - `ParseEnumError` returned by those `FromStr` impls.
 - `docker_proxy_service` replaces `resolve_docker_name` and returns

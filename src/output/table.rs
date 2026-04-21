@@ -10,7 +10,9 @@ use tabled::settings::Style;
 use tabled::settings::object::Columns;
 use tabled::settings::width::Truncate;
 
-use netls::{Connection, FdUsage, State, compact_addr, fmt_age, resolve_proxy_origins, snapshot_all};
+use netls::{
+    Connection, FdUsage, Proto, State, compact_addr, fmt_age, resolve_proxy_origins, snapshot_all,
+};
 
 use crate::display::{self, NO_PERMISSION, format_process_text};
 use crate::services;
@@ -194,8 +196,11 @@ fn build_base(
     } else {
         c.process.as_deref().unwrap_or(&no_perm).to_owned()
     };
+    // Raw sockets encode the IP protocol number in the "port" position, so
+    // port->service lookups produce nonsense (e.g. proto=58 -> "xns-mail").
+    let annotate = service_names && c.proto != Proto::Raw;
     let fmt_remote = |addr: &str| {
-        if service_names {
+        if annotate {
             services::annotate_addr(addr)
         } else {
             addr.to_string()
@@ -204,7 +209,7 @@ fn build_base(
     let is_container = c.container.is_some();
     let fmt_loc = |addr: &str| {
         let base = fmt_local(addr, color, is_container);
-        if service_names {
+        if annotate {
             services::annotate_addr(&base)
         } else {
             base

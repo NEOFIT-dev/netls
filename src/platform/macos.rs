@@ -122,6 +122,21 @@ fn parse_socket(info: SocketInfo, pid: u32, name: Option<&str>) -> Option<Connec
             );
             (Proto::Udp, local, remote, None)
         }
+    } else if si.soi_type == libc::SOCK_RAW {
+        unsafe {
+            let raw = &si.soi_proto.pri_in;
+            let local = format_addr(
+                ipv6,
+                &raw.insi_laddr as *const _ as *const u8,
+                raw.insi_lport,
+            );
+            let remote = format_addr(
+                ipv6,
+                &raw.insi_faddr as *const _ as *const u8,
+                raw.insi_fport,
+            );
+            (Proto::Raw, local, remote, None)
+        }
     } else {
         return None;
     };
