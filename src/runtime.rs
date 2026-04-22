@@ -45,6 +45,7 @@ struct ContainerInfo {
     #[allow(dead_code)]
     id: String,
     name: String,
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     ips: Vec<String>,
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     published_ports: Vec<u16>,
@@ -142,6 +143,7 @@ fn container_host_pid(socket: &Path, container_id: &str) -> std::io::Result<u32>
 
 /// Build a map of container IP -> compose service name (or container name as fallback).
 /// Returns empty map on any error.
+#[cfg(target_os = "linux")]
 #[must_use]
 pub(crate) fn container_ip_to_service() -> HashMap<String, String> {
     list_containers()
@@ -196,17 +198,12 @@ pub(crate) fn get_container_connections() -> Result<Vec<Connection>> {
     Ok(result)
 }
 
-/// Always returns an empty Vec on non-Linux platforms (no `/proc/<pid>/net/`).
-#[cfg(not(target_os = "linux"))]
-pub(crate) fn get_container_connections() -> Result<Vec<Connection>> {
-    Ok(vec![])
-}
-
 // ── Docker-specific helpers ───────────────────────────────────────────────────
 // docker-proxy is a Docker-only mechanism for host-port publishing. Podman
 // uses slirp4netns / pasta and has no equivalent userland process.
 
 /// Parse `-container-ip <IP>` from a docker-proxy cmdline (null-separated args).
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 #[must_use]
 pub(crate) fn parse_docker_proxy_ip(cmdline: &[u8]) -> Option<String> {
     let args: Vec<&str> = cmdline
