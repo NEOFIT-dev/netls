@@ -272,7 +272,7 @@ profiles. Negation flags are planned.
 
 ```toml
 [dependencies]
-netls = "0.1"
+netls = "1"
 ```
 
 ```rust
