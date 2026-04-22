@@ -85,15 +85,15 @@ pub fn enrich_fd(conns: &mut [Connection]) {
     use libproc::libproc::proc_pid;
     // Per-process rlimit for arbitrary PIDs requires root on macOS; use the
     // system default (this process's limit) as the best available approximation.
-    let limit = unsafe {
+    let limit: Option<usize> = unsafe {
         let mut rl = libc::rlimit {
             rlim_cur: 0,
             rlim_max: 0,
         };
         if libc::getrlimit(libc::RLIMIT_NOFILE, &mut rl) == 0 {
-            rl.rlim_cur as usize
+            Some(rl.rlim_cur as usize)
         } else {
-            usize::MAX
+            None
         }
     };
     let mut cache: HashMap<u32, crate::FdUsage> = HashMap::new();

@@ -966,10 +966,8 @@ mod tests {
 
     #[test]
     fn cli_option_wins_over_config() {
-        let defaults = Defaults {
-            proto: Some("udp".into()),
-            ..Default::default()
-        };
+        let mut defaults = Defaults::default();
+        defaults.proto = Some("udp".into());
         let cli = run(&["netls", "--proto", "tcp"], defaults);
         assert_eq!(
             cli.proto.as_deref(),
@@ -980,11 +978,9 @@ mod tests {
 
     #[test]
     fn config_option_applies_when_cli_unset() {
-        let defaults = Defaults {
-            proto: Some("udp".into()),
-            sort: Some("port".into()),
-            ..Default::default()
-        };
+        let mut defaults = Defaults::default();
+        defaults.proto = Some("udp".into());
+        defaults.sort = Some("port".into());
         let cli = run(&["netls"], defaults);
         assert_eq!(cli.proto.as_deref(), Some("udp"));
         assert_eq!(cli.sort.as_deref(), Some("port"));
@@ -995,21 +991,17 @@ mod tests {
         // Config explicitly sets no_loopback = false; CLI passes the flag.
         // The CLI form is a presence flag that defaults to false, so we rely
         // on value_source to detect that the user actually typed it.
-        let defaults = Defaults {
-            no_loopback: Some(false),
-            ..Default::default()
-        };
+        let mut defaults = Defaults::default();
+        defaults.no_loopback = Some(false);
         let cli = run(&["netls", "--no-loopback"], defaults);
         assert!(cli.no_loopback, "CLI flag must beat config bool=false");
     }
 
     #[test]
     fn config_bool_applies_when_cli_did_not_pass_flag() {
-        let defaults = Defaults {
-            no_loopback: Some(true),
-            service_names: Some(true),
-            ..Default::default()
-        };
+        let mut defaults = Defaults::default();
+        defaults.no_loopback = Some(true);
+        defaults.service_names = Some(true);
         let cli = run(&["netls"], defaults);
         assert!(cli.no_loopback, "config-set bool must apply");
         assert!(cli.service_names);

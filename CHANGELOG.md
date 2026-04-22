@@ -25,6 +25,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   print to stderr from inside the library.
 - `Connection::key` now returns a `ConnectionKey` newtype. Signatures of
   `diff_connections` and `resolve_proxy_origins` updated accordingly.
+- `diff_connections` returns `ConnectionDiff { new, closed }` instead of
+  a bare `(HashSet, Vec)` tuple.
+- `resolve_proxy_origins` values are now `Vec<String>` (one entry per
+  originating process) instead of a comma-joined `String`.
+- `FdUsage::soft_limit` is now `Option<usize>` (`None` when the limit
+  could not be read). Previously a `usize` with `usize::MAX` sentinel.
+- `top_connections` returns `Vec<TopProcess>` instead of
+  `Vec<(String, usize)>`. Field names: `name`, `count`.
+- `Error::Parse` is now a struct-variant `{ message: String }` instead of
+  a tuple variant `(String)`. Adding context fields later stays additive.
+- `ConfigError::Parse` is now a struct-variant `{ path, message }` instead
+  of a tuple variant `(PathBuf, String)`. Same rationale as `Error::Parse`.
 
 ### Added
 
@@ -40,8 +52,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ParseEnumError` returned by those `FromStr` impls.
 - `docker_proxy_service` replaces `resolve_docker_name` and returns
   just the service name.
-- `#[non_exhaustive]` on `Proto`, `State`, `Error`, `Summary`, `ConfigError`,
-  `FdUsage`, `ParseEnumError`, `SortKey`, `SnapshotResult`.
+- `Connection::new(proto, local, remote)` minimal constructor. Needed
+  because `Connection` is now `#[non_exhaustive]`: external crates can
+  no longer use struct-literal construction.
+- `ConnectionDiff { new, closed }` struct returned by `diff_connections`.
+- `TopProcess { name, count }` struct returned by `top_connections`.
+- `#[non_exhaustive]` on `Connection`, `Config`, `Defaults`, `LoadedConfig`,
+  `ConnectionDiff`, `TopProcess`, and the previously marked `Proto`,
+  `State`, `Error`, `Summary`, `ConfigError`, `FdUsage`, `ParseEnumError`,
+  `SortKey`, `SnapshotResult`.
 
 ### Removed
 

@@ -11,11 +11,11 @@
 pub mod config;
 /// Reverse-DNS resolution helpers (internal; re-exported as [`resolve_dns`]).
 pub(crate) mod dns;
+/// Per-platform connection collection; wrapped by [`snapshot`].
+pub(crate) mod platform;
 /// Container runtime (Docker, Podman) metadata; wrapped by
 /// [`snapshot_with_containers`].
 pub(crate) mod runtime;
-/// Per-platform connection collection; wrapped by [`snapshot`].
-pub(crate) mod platform;
 
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -92,8 +92,10 @@ pub fn enrich_fd(conns: &mut [Connection]) {
         let usage = cache.entry(pid).or_insert_with(|| {
             let open =
                 std::fs::read_dir(format!("/proc/{pid}/fd")).map_or(0, std::iter::Iterator::count);
-            let soft_limit = read_fd_limit(pid).unwrap_or(usize::MAX);
-            FdUsage { open, soft_limit }
+            FdUsage {
+                open,
+                soft_limit: read_fd_limit(pid),
+            }
         });
         c.fd_usage = Some(*usage);
     }
@@ -292,8 +294,13 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("platform not supported")]
     UnsupportedPlatform,
-    #[error("parse error: {0}")]
-    Parse(String),
+    /// Failed to parse a byte / text representation of connection data
+    /// (e.g. `/proc/net/tcp` line, macOS libproc struct).
+    #[error("parse error: {message}")]
+    Parse {
+        /// Human-readable description of what failed to parse.
+        message: String,
+    },
 }
 
 /// Convenience alias for `std::result::Result<T, netls::Error>`.
@@ -434,13 +441,23 @@ impl fmt::Display for ParseEnumError {
 impl std::error::Error for ParseEnumError {}
 
 /// A single network connection.
+///
+/// Marked `#[non_exhaustive]`: additional fields may be added in future
+/// minor releases. Construct via [`snapshot`] / [`snapshot_all`] rather
+/// than struct literal.
+#[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Connection {
     /// Transport protocol.
     pub proto: Proto,
-    /// Local endpoint as `addr:port` (or socket path for Unix sockets).
+    /// Local endpoint as `addr:port`, or socket path for Unix sockets.
+    ///
+    /// Stable format: IPv4 is `1.2.3.4:PORT`, IPv6 is `[::1]:PORT` with
+    /// square brackets. No IPv6 scope id / zone suffix. Port `*` marks
+    /// wildcards. Use [`compact_addr`] for human-friendly rendering.
     pub local: String,
-    /// Remote endpoint as `addr:port`. `0.0.0.0:*` for listening sockets.
+    /// Remote endpoint, same format as [`local`](Self::local). `0.0.0.0:*`
+    /// or `[::]:*` for listening sockets.
     pub remote: String,
     /// TCP state. `None` for UDP and Unix sockets.
     pub state: Option<State>,
@@ -509,12 +526,35 @@ impl std::borrow::Borrow<str> for ConnectionKey {
 pub struct FdUsage {
     /// Currently open file-descriptor count.
     pub open: usize,
-    /// Soft limit from `RLIMIT_NOFILE` / `/proc/<pid>/limits`,
-    /// or [`usize::MAX`] when unreadable.
-    pub soft_limit: usize,
+    /// Soft limit from `RLIMIT_NOFILE` / `/proc/<pid>/limits`.
+    /// `None` when the limit could not be read.
+    pub soft_limit: Option<usize>,
 }
 
 impl Connection {
+    /// Minimal constructor: required identity fields only. All other fields
+    /// start as `None` and can be set directly (they are `pub`).
+    #[must_use]
+    pub fn new(proto: Proto, local: impl Into<String>, remote: impl Into<String>) -> Self {
+        Self {
+            proto,
+            local: local.into(),
+            remote: remote.into(),
+            state: None,
+            pid: None,
+            process: None,
+            cmdline: None,
+            container: None,
+            recv_q: None,
+            send_q: None,
+            inode: None,
+            age_secs: None,
+            parent_chain: None,
+            systemd_unit: None,
+            fd_usage: None,
+        }
+    }
+
     /// Stable identity key for this connection. Used as the lookup key in
     /// [`diff_connections`] and [`resolve_proxy_origins`].
     #[must_use]
@@ -634,7 +674,7 @@ impl Filter {
 ///
 /// # Errors
 ///
-/// Propagates I/O errors from [`platform::get_connections`]: failure to read
+/// Propagates I/O errors from the platform layer: failure to read
 /// `/proc/net/*` on Linux or `proc_listpidinfo` on macOS.
 pub fn snapshot(filter: &Filter) -> Result<Vec<Connection>> {
     let all = platform::get_connections()?;
@@ -703,10 +743,20 @@ impl std::str::FromStr for SortKey {
     }
 }
 
-/// Return top N processes by connection count.
-/// Each entry: (process_name, count).
+/// A single entry returned by [`top_connections`].
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TopProcess {
+    /// Process name, or `"-"` if unknown.
+    pub name: String,
+    /// Number of connections owned by this process in the snapshot.
+    pub count: usize,
+}
+
+/// Return top N processes by connection count, descending.
+/// Ties are broken by name (ascending).
 #[must_use]
-pub fn top_connections(conns: &[Connection], n: usize) -> Vec<(String, usize)> {
+pub fn top_connections(conns: &[Connection], n: usize) -> Vec<TopProcess> {
     use std::collections::HashMap;
     let counts = conns
         .iter()
@@ -715,8 +765,11 @@ pub fn top_connections(conns: &[Connection], n: usize) -> Vec<(String, usize)> {
             *acc.entry(name).or_insert(0) += 1;
             acc
         });
-    let mut sorted: Vec<(String, usize)> = counts.into_iter().collect();
-    sorted.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    let mut sorted: Vec<TopProcess> = counts
+        .into_iter()
+        .map(|(name, count)| TopProcess { name, count })
+        .collect();
+    sorted.sort_by(|a, b| b.count.cmp(&a.count).then(a.name.cmp(&b.name)));
     sorted.truncate(n);
     sorted
 }
@@ -763,13 +816,12 @@ pub struct Summary {
 }
 
 /// For each external connection that passes through a local proxy, return the
-/// name of the real originating process.
-///
-/// Returns a map: `"proto|local|remote"` → `"origin_process"`.
+/// list of originating process names (one or more).
 ///
 /// Example: firefox → sing-box → 8.8.8.8:443
-/// The key is for the sing-box connection, the value is "firefox".
-pub fn resolve_proxy_origins(conns: &[Connection]) -> HashMap<ConnectionKey, String> {
+/// The key is for the sing-box connection, the value is `["firefox"]`.
+/// Multiple clients on the same local port produce multiple entries.
+pub fn resolve_proxy_origins(conns: &[Connection]) -> HashMap<ConnectionKey, Vec<String>> {
     let pid_listen_ports = build_listen_ports_map(conns);
     let port_clients = build_port_clients_map(conns);
 
@@ -793,13 +845,13 @@ pub fn resolve_proxy_origins(conns: &[Connection]) -> HashMap<ConnectionKey, Str
             let Some(clients) = port_clients.get(&port) else {
                 continue;
             };
-            let origins: Vec<&str> = clients
+            let origins: Vec<String> = clients
                 .iter()
-                .map(std::string::String::as_str)
-                .filter(|&n| n != proxy_name)
+                .filter(|n| n.as_str() != proxy_name)
+                .cloned()
                 .collect();
             if !origins.is_empty() {
-                result.insert(c.key(), origins.join(", "));
+                result.insert(c.key(), origins);
                 break;
             }
         }
@@ -925,24 +977,28 @@ pub fn docker_proxy_service(_c: &Connection) -> Option<String> {
     None
 }
 
+/// Result of [`diff_connections`].
+#[non_exhaustive]
+#[derive(Debug, Default, Clone)]
+pub struct ConnectionDiff {
+    /// Keys present in `curr` but not in `prev` (newly opened).
+    pub new: HashSet<ConnectionKey>,
+    /// Full connection records present in `prev` but not in `curr` (closed).
+    pub closed: Vec<Connection>,
+}
+
 /// Compute the diff between two connection snapshots.
-///
-/// Returns `(new_keys, closed_conns)`:
-/// - `new_keys`: keys present in `curr` but not `prev`
-/// - `closed_conns`: connections present in `prev` but not `curr`
-pub fn diff_connections(
-    prev: &[Connection],
-    curr: &[Connection],
-) -> (HashSet<ConnectionKey>, Vec<Connection>) {
+#[must_use]
+pub fn diff_connections(prev: &[Connection], curr: &[Connection]) -> ConnectionDiff {
     let curr_keys: HashSet<ConnectionKey> = curr.iter().map(Connection::key).collect();
     let prev_keys: HashSet<ConnectionKey> = prev.iter().map(Connection::key).collect();
-    let new_keys = curr_keys.difference(&prev_keys).cloned().collect();
+    let new = curr_keys.difference(&prev_keys).cloned().collect();
     let closed = prev
         .iter()
         .filter(|c| !curr_keys.contains(&c.key()))
         .cloned()
         .collect();
-    (new_keys, closed)
+    ConnectionDiff { new, closed }
 }
 
 fn extract_port(addr: &str) -> Option<u16> {
@@ -1160,6 +1216,81 @@ mod tests {
         assert_eq!(compact_addr("[::]:80"), "*:80");
     }
 
+    #[test]
+    fn compact_addr_leaves_regular_addresses_untouched() {
+        assert_eq!(compact_addr("0.0.0.0:80"), "0.0.0.0:80");
+        assert_eq!(compact_addr("127.0.0.1:443"), "127.0.0.1:443");
+        assert_eq!(compact_addr("[fe80::1]:22"), "[fe80::1]:22");
+    }
+
+    // ── FromStr for Proto / State / SortKey ───────────────────────────────────
+
+    #[test]
+    fn proto_from_str_case_insensitive_and_error() {
+        assert_eq!("tcp".parse::<Proto>().unwrap(), Proto::Tcp);
+        assert_eq!("TCP".parse::<Proto>().unwrap(), Proto::Tcp);
+        assert_eq!("Udp".parse::<Proto>().unwrap(), Proto::Udp);
+        let err = "sctp".parse::<Proto>().unwrap_err();
+        assert_eq!(err.kind, "proto");
+        assert_eq!(err.value, "sctp");
+        assert!(err.allowed.contains(&"tcp"));
+    }
+
+    #[test]
+    fn state_from_str_handles_underscored_and_case() {
+        assert_eq!("TIME_WAIT".parse::<State>().unwrap(), State::TimeWait);
+        assert_eq!("time_wait".parse::<State>().unwrap(), State::TimeWait);
+        assert_eq!("established".parse::<State>().unwrap(), State::Established);
+        assert!("unknown".parse::<State>().is_err());
+    }
+
+    #[test]
+    fn sort_key_from_str_basic() {
+        assert_eq!("port".parse::<SortKey>().unwrap(), SortKey::Port);
+        assert_eq!("PROTO".parse::<SortKey>().unwrap(), SortKey::Proto);
+        let err = "bogus".parse::<SortKey>().unwrap_err();
+        assert_eq!(err.kind, "sort");
+    }
+
+    // ── text_matches case-insensitivity ───────────────────────────────────────
+
+    #[test]
+    fn text_matches_ignores_case_of_query_and_fields() {
+        let mut c = make_conn(
+            Proto::Tcp,
+            "0.0.0.0:80",
+            "Registry.Local:443",
+            Some(State::Established),
+            Some(1),
+        );
+        c.process = Some("Nginx".to_string());
+        assert!(c.text_matches("nginx"));
+        assert!(c.text_matches("NGINX"));
+        assert!(c.text_matches("registry.local"));
+        assert!(c.text_matches("ESTABLISHED"));
+    }
+
+    // ── ConnectionKey Borrow<str> contract ────────────────────────────────────
+
+    #[test]
+    fn connection_key_can_be_borrowed_as_str() {
+        use std::collections::HashMap;
+        let c = make_conn(
+            Proto::Tcp,
+            "1.2.3.4:80",
+            "5.6.7.8:443",
+            Some(State::Established),
+            Some(1),
+        );
+        let key = c.key();
+        let as_str: &str = key.as_ref();
+        assert!(as_str.starts_with("tcp|"));
+
+        let mut map: HashMap<ConnectionKey, i32> = HashMap::new();
+        map.insert(key.clone(), 42);
+        assert_eq!(map.get(as_str), Some(&42));
+    }
+
     // ── diff_connections ──────────────────────────────────────────────────────
 
     #[test]
@@ -1187,10 +1318,10 @@ mod tests {
                 None,
             ),
         ];
-        let (new_keys, closed) = diff_connections(&prev, &curr);
-        assert_eq!(new_keys.len(), 1);
-        assert!(new_keys.contains("tcp|0.0.0.0:443|0.0.0.0:*"));
-        assert!(closed.is_empty());
+        let diff = diff_connections(&prev, &curr);
+        assert_eq!(diff.new.len(), 1);
+        assert!(diff.new.contains("tcp|0.0.0.0:443|0.0.0.0:*"));
+        assert!(diff.closed.is_empty());
     }
 
     #[test]
@@ -1218,10 +1349,10 @@ mod tests {
             Some(State::Listen),
             None,
         )];
-        let (new_keys, closed) = diff_connections(&prev, &curr);
-        assert!(new_keys.is_empty());
-        assert_eq!(closed.len(), 1);
-        assert_eq!(closed[0].local, "0.0.0.0:443");
+        let diff = diff_connections(&prev, &curr);
+        assert!(diff.new.is_empty());
+        assert_eq!(diff.closed.len(), 1);
+        assert_eq!(diff.closed[0].local, "0.0.0.0:443");
     }
 
     // ── top_connections ───────────────────────────────────────────────────────
@@ -1262,8 +1393,8 @@ mod tests {
         c4.process = Some("curl".to_string());
         let top = top_connections(&[c1, c2, c3, c4], 1);
         assert_eq!(top.len(), 1);
-        assert_eq!(top[0].0, "nginx");
-        assert_eq!(top[0].1, 3);
+        assert_eq!(top[0].name, "nginx");
+        assert_eq!(top[0].count, 3);
     }
 
     // ── filter extras ─────────────────────────────────────────────────────────
@@ -1470,6 +1601,6 @@ mod tests {
         let origins = resolve_proxy_origins(&conns);
 
         assert!(origins.contains_key(&proxy_key));
-        assert!(origins[&proxy_key].contains("firefox"));
+        assert!(origins[&proxy_key].iter().any(|n| n == "firefox"));
     }
 }

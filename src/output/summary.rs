@@ -22,7 +22,7 @@ pub fn print_top(conns: &[Connection], n: usize) {
         return;
     }
     println!("{:<6}  PROCESS", "COUNT");
-    for (name, count) in &top {
-        println!("{count:<6}  {name}");
+    for entry in &top {
+        println!("{:<6}  {}", entry.count, entry.name);
     }
 }

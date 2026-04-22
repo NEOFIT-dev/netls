@@ -41,23 +41,11 @@ mod tests {
     use netls::{Connection, Proto, State};
 
     fn make_conn() -> Connection {
-        Connection {
-            proto: Proto::Tcp,
-            local: "127.0.0.1:8080".to_string(),
-            remote: "1.2.3.4:443".to_string(),
-            state: Some(State::Established),
-            pid: Some(1234),
-            process: Some("curl".to_string()),
-            cmdline: None,
-            container: None,
-            recv_q: None,
-            send_q: None,
-            inode: None,
-            age_secs: None,
-            parent_chain: None,
-            systemd_unit: None,
-            fd_usage: None,
-        }
+        let mut c = Connection::new(Proto::Tcp, "127.0.0.1:8080", "1.2.3.4:443");
+        c.state = Some(State::Established);
+        c.pid = Some(1234);
+        c.process = Some("curl".to_string());
+        c
     }
 
     #[test]

@@ -30,8 +30,9 @@ struct RawSocketFDInfo {
 /// `PROC_PIDFDSOCKETINFO`).
 pub fn get_connections() -> Result<Vec<Connection>> {
     #[allow(deprecated)]
-    let pids = proc_pid::listpids(proc_pid::ProcType::ProcAllPIDS)
-        .map_err(|e| Error::Parse(format!("listpids: {e}")))?;
+    let pids = proc_pid::listpids(proc_pid::ProcType::ProcAllPIDS).map_err(|e| Error::Parse {
+        message: format!("listpids: {e}"),
+    })?;
 
     let mut conns = Vec::new();
 

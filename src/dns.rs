@@ -11,9 +11,9 @@ use crate::{Connection, Proto};
 
 /// Resolve remote IP addresses to hostnames in-place.
 /// Skips wildcard (`*`), loopback, and addresses that fail to resolve.
-/// All unique IPs are looked up concurrently under a single
-/// [`DNS_LOOKUP_TIMEOUT`] deadline, so total latency stays bounded
-/// regardless of how many connections are passed in.
+/// All unique IPs are looked up concurrently under a single 2-second
+/// deadline, so total latency stays bounded regardless of how many
+/// connections are passed in.
 pub fn resolve_dns(conns: &mut [Connection]) {
     use std::collections::HashMap;
     use std::sync::mpsc;

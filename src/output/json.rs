@@ -25,23 +25,11 @@ mod tests {
     use netls::{Connection, Proto, State};
 
     fn make_conn() -> Connection {
-        Connection {
-            proto: Proto::Tcp,
-            local: "0.0.0.0:80".to_string(),
-            remote: "0.0.0.0:*".to_string(),
-            state: Some(State::Listen),
-            pid: Some(42),
-            process: Some("nginx".to_string()),
-            cmdline: None,
-            container: None,
-            recv_q: None,
-            send_q: None,
-            inode: None,
-            age_secs: None,
-            parent_chain: None,
-            systemd_unit: None,
-            fd_usage: None,
-        }
+        let mut c = Connection::new(Proto::Tcp, "0.0.0.0:80", "0.0.0.0:*");
+        c.state = Some(State::Listen);
+        c.pid = Some(42);
+        c.process = Some("nginx".to_string());
+        c
     }
 
     #[test]

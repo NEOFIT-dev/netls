@@ -15,9 +15,9 @@ fn snapshot_sees_a_tcp_listener() {
     let port = listener.local_addr().unwrap().port();
 
     let conns = snapshot(&Filter::default().proto(Proto::Tcp)).unwrap();
-    let found = conns.iter().any(|c| {
-        c.state == Some(State::Listen) && c.local.ends_with(&format!(":{port}"))
-    });
+    let found = conns
+        .iter()
+        .any(|c| c.state == Some(State::Listen) && c.local.ends_with(&format!(":{port}")));
     assert!(found, "listener on port {port} not found in snapshot");
 }
 

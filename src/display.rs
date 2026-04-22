@@ -15,10 +15,14 @@ pub(crate) fn process_display(c: &Connection) -> &str {
 
 pub(crate) fn format_process_text<S: std::hash::BuildHasher>(
     c: &Connection,
-    origins: &HashMap<ConnectionKey, String, S>,
+    origins: &HashMap<ConnectionKey, Vec<String>, S>,
 ) -> String {
     match origins.get(&c.key()) {
-        Some(clients) => format!("{} <- {}", c.process.as_deref().unwrap_or("?"), clients),
+        Some(clients) => format!(
+            "{} <- {}",
+            c.process.as_deref().unwrap_or("?"),
+            clients.join(", ")
+        ),
         None => c
             .process
             .clone()

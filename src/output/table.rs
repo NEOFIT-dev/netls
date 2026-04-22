@@ -119,9 +119,9 @@ fn render_conns(conns: &[Connection], opts: TableOptions) -> Result<String> {
             let fd_str = match c.fd_usage {
                 Some(FdUsage {
                     open,
-                    soft_limit: limit,
+                    soft_limit: Some(limit),
                     ..
-                }) if limit != usize::MAX => {
+                }) => {
                     let pct = open * 100 / limit.max(1);
                     if pct >= 90 {
                         format!("{open}/{limit}").bright_red().to_string()
@@ -177,7 +177,7 @@ struct BaseRow {
 fn build_base(
     c: &Connection,
     color: bool,
-    origins: &HashMap<netls::ConnectionKey, String>,
+    origins: &HashMap<netls::ConnectionKey, Vec<String>>,
     service_names: bool,
 ) -> BaseRow {
     let no_perm = no_permission(color);

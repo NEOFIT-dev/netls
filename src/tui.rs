@@ -30,7 +30,7 @@ struct App {
     filter: Filter,
     resolve_proxy: bool,
     conns: Vec<Connection>,
-    origins: std::collections::HashMap<netls::ConnectionKey, String>,
+    origins: std::collections::HashMap<netls::ConnectionKey, Vec<String>>,
     new_keys: HashSet<netls::ConnectionKey>,
     closed_conns: Vec<Connection>,
     table_state: TableState,
@@ -62,9 +62,9 @@ impl App {
 
     fn refresh(&mut self) -> Result<()> {
         let curr = snapshot(&self.filter)?;
-        let (new_keys, closed_conns) = diff_connections(&self.conns, &curr);
-        self.new_keys = new_keys;
-        self.closed_conns = closed_conns;
+        let diff = diff_connections(&self.conns, &curr);
+        self.new_keys = diff.new;
+        self.closed_conns = diff.closed;
 
         if self.resolve_proxy {
             match netls::snapshot_all() {
@@ -234,11 +234,8 @@ fn draw_table(f: &mut Frame, app: &mut App, area: ratatui::layout::Rect) {
         .style(Style::default().add_modifier(Modifier::BOLD | Modifier::UNDERLINED));
 
     let visible = app.visible_rows();
-    let closed_keys: HashSet<netls::ConnectionKey> = app
-        .closed_conns
-        .iter()
-        .map(Connection::key)
-        .collect();
+    let closed_keys: HashSet<netls::ConnectionKey> =
+        app.closed_conns.iter().map(Connection::key).collect();
 
     let rows: Vec<Row> = visible
         .iter()
@@ -279,7 +276,7 @@ fn no_permission_cell() -> Cell<'static> {
 /// Build a single table row for the given connection.
 fn build_tui_row(
     c: &Connection,
-    origins: &std::collections::HashMap<netls::ConnectionKey, String>,
+    origins: &std::collections::HashMap<netls::ConnectionKey, Vec<String>>,
     closed_keys: &HashSet<netls::ConnectionKey>,
     new_keys: &HashSet<netls::ConnectionKey>,
 ) -> Row<'static> {

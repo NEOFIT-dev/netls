@@ -78,9 +78,9 @@ fn parse_proc_net(
         // fields[4] = "tx_queue:rx_queue" in hex
         let (send_q, recv_q) = parse_queues(fields[4]);
 
-        let inode: u64 = fields[9]
-            .parse()
-            .map_err(|_| Error::Parse(format!("bad inode: {}", fields[9])))?;
+        let inode: u64 = fields[9].parse().map_err(|_| Error::Parse {
+            message: format!("bad inode: {}", fields[9]),
+        })?;
 
         let (pid, process) = pid_map
             .get(&inode)
@@ -116,12 +116,13 @@ fn parse_proc_net(
 /// The kernel prints addresses as native-endian u32 words, so we use
 /// `to_ne_bytes()` to recover the original byte order on both LE and BE hosts.
 fn parse_address(s: &str, ipv6: bool) -> Result<String> {
-    let (addr_hex, port_hex) = s
-        .split_once(':')
-        .ok_or_else(|| Error::Parse(format!("bad address field: {s}")))?;
+    let (addr_hex, port_hex) = s.split_once(':').ok_or_else(|| Error::Parse {
+        message: format!("bad address field: {s}"),
+    })?;
 
-    let port = u16::from_str_radix(port_hex, 16)
-        .map_err(|_| Error::Parse(format!("bad port hex: {port_hex}")))?;
+    let port = u16::from_str_radix(port_hex, 16).map_err(|_| Error::Parse {
+        message: format!("bad port hex: {port_hex}"),
+    })?;
 
     let port_str = if port == 0 {
         "*".to_string()
@@ -141,7 +142,9 @@ fn parse_address(s: &str, ipv6: bool) -> Result<String> {
 /// 8 hex chars → Ipv4Addr.
 /// The kernel writes the address as a native-endian u32.
 fn parse_ipv4_hex(s: &str) -> Result<Ipv4Addr> {
-    let n = u32::from_str_radix(s, 16).map_err(|_| Error::Parse(format!("bad ipv4 hex: {s}")))?;
+    let n = u32::from_str_radix(s, 16).map_err(|_| Error::Parse {
+        message: format!("bad ipv4 hex: {s}"),
+    })?;
     // to_ne_bytes() gives the bytes in memory order, which matches the IP octets
     // on both little-endian (most Linux systems) and big-endian hosts.
     Ok(Ipv4Addr::from(n.to_ne_bytes()))
@@ -151,13 +154,16 @@ fn parse_ipv4_hex(s: &str) -> Result<Ipv4Addr> {
 /// Stored as four native-endian u32 words, each covering 4 bytes of the address.
 fn parse_ipv6_hex(s: &str) -> Result<Ipv6Addr> {
     if s.len() != 32 {
-        return Err(Error::Parse(format!("bad ipv6 hex length: {s}")));
+        return Err(Error::Parse {
+            message: format!("bad ipv6 hex length: {s}"),
+        });
     }
     let mut bytes = [0u8; 16];
     for i in 0..4 {
         let word_hex = &s[i * 8..(i + 1) * 8];
-        let word = u32::from_str_radix(word_hex, 16)
-            .map_err(|_| Error::Parse(format!("bad ipv6 word: {word_hex}")))?;
+        let word = u32::from_str_radix(word_hex, 16).map_err(|_| Error::Parse {
+            message: format!("bad ipv6 word: {word_hex}"),
+        })?;
         bytes[i * 4..(i + 1) * 4].copy_from_slice(&word.to_ne_bytes());
     }
     Ok(Ipv6Addr::from(bytes))

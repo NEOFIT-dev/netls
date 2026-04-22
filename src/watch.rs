@@ -89,12 +89,12 @@ fn run_json(
                     std::collections::HashMap::new()
                 };
 
-                let (new_keys, closed_conns) = diff_connections(&prev_conns, &curr);
+                let diff = diff_connections(&prev_conns, &curr);
 
-                for c in curr.iter().filter(|c| new_keys.contains(&c.key())) {
+                for c in curr.iter().filter(|c| diff.new.contains(&c.key())) {
                     emit_event("new", c, &origins);
                 }
-                for c in &closed_conns {
+                for c in &diff.closed {
                     emit_event("closed", c, &origins);
                 }
                 io::stdout().flush()?;
@@ -152,7 +152,7 @@ struct WatchState {
     prev_conns: Vec<Connection>,
     last_refresh: Instant,
     entries: Vec<(Connection, RowKind)>,
-    origins: HashMap<netls::ConnectionKey, String>,
+    origins: HashMap<netls::ConnectionKey, Vec<String>>,
     scroll: usize,
     max_visible: usize,
     needs_redraw: bool,
@@ -309,7 +309,7 @@ fn refresh_data(
             return;
         }
     };
-    let (new_keys, closed) = diff_connections(&state.prev_conns, &curr);
+    let diff = diff_connections(&state.prev_conns, &curr);
 
     if resolve_proxy {
         match snapshot_all() {
@@ -321,7 +321,7 @@ fn refresh_data(
     state.entries = curr
         .iter()
         .map(|c| {
-            let kind = if new_keys.contains(&c.key()) {
+            let kind = if diff.new.contains(&c.key()) {
                 RowKind::New
             } else {
                 RowKind::Normal
@@ -329,7 +329,7 @@ fn refresh_data(
             (c.clone(), kind)
         })
         .collect();
-    for c in closed {
+    for c in diff.closed {
         state.entries.push((c, RowKind::Closed));
     }
 
@@ -385,7 +385,7 @@ fn render(state: &mut WatchState, interval_secs: u64) -> Result<()> {
 
 fn print_table(
     entries: &[&(Connection, RowKind)],
-    origins: &HashMap<netls::ConnectionKey, String>,
+    origins: &HashMap<netls::ConnectionKey, Vec<String>>,
     term_cols: usize,
     max_visible: usize,
     scroll: usize,
@@ -439,7 +439,7 @@ fn print_table(
 
 fn fmt_row(
     c: &Connection,
-    origins: &HashMap<netls::ConnectionKey, String>,
+    origins: &HashMap<netls::ConnectionKey, Vec<String>>,
     w_proc: usize,
     containers: bool,
 ) -> String {
@@ -541,12 +541,17 @@ fn print_footer(editing: bool, filter_query: &str) {
 
 // ── JSON event emitter ────────────────────────────────────────────────────────
 
-fn emit_event(event: &str, c: &Connection, origins: &HashMap<netls::ConnectionKey, String>) {
+fn emit_event(event: &str, c: &Connection, origins: &HashMap<netls::ConnectionKey, Vec<String>>) {
     let proxy_origin = origins.get(&c.key());
     let result = match proxy_origin {
-        Some(origin) => serde_json::to_string(c).map(|json| {
-            format!("{{\"event\":\"{event}\",\"proxy_origin\":\"{origin}\",\"connection\":{json}}}")
-        }),
+        Some(origin) => {
+            let joined = origin.join(", ");
+            serde_json::to_string(c).map(|json| {
+                format!(
+                    "{{\"event\":\"{event}\",\"proxy_origin\":\"{joined}\",\"connection\":{json}}}"
+                )
+            })
+        }
         None => serde_json::to_string(c)
             .map(|json| format!("{{\"event\":\"{event}\",\"connection\":{json}}}")),
     };

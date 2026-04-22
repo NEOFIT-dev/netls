@@ -10,7 +10,7 @@
 //!   was given on the command line
 //! - `[profiles.<name>]`: named overlays activated by `--profile <name>`, applied
 //!   on top of `[defaults]`
-//! - `[ports]`: extends the built-in port -> service-name map used by `--service-names`
+//! - `[ports]`: extends the built-in port → service-name map used by `--service-names`
 
 use figment::{
     Figment,
@@ -23,6 +23,7 @@ use std::path::{Path, PathBuf};
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 /// Top-level configuration schema. All sections are optional.
+#[non_exhaustive]
 #[derive(Deserialize, Default, Debug, Clone, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -46,6 +47,7 @@ pub struct Config {
 /// Field names mirror CLI flag names with `-` replaced by `_`. Every field is
 /// `Option<T>` so the config can express "unset" (fall through to the CLI /
 /// built-in default) distinctly from "explicitly set to false / empty string".
+#[non_exhaustive]
 #[derive(Deserialize, Default, Debug, Clone, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 #[allow(missing_docs)]
@@ -91,6 +93,7 @@ pub struct Defaults {
 /// Result of [`load`]: the parsed config plus the path it came from (when a
 /// file was actually read). `source_path` is `None` when no file was loaded
 /// (XDG default missing, or the platform has no config dir).
+#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct LoadedConfig {
     /// The parsed configuration. [`Config::default`] when no file was found.
@@ -142,9 +145,14 @@ pub fn load(explicit_path: Option<&Path>) -> Result<LoadedConfig, ConfigError> {
     let cfg = Figment::new()
         .merge(Toml::file(&path))
         .extract::<Config>()
-        .map_err(|e| ConfigError::Parse(path.clone(), e.to_string()))?;
-    cfg.validate()
-        .map_err(|msg| ConfigError::Parse(path.clone(), msg))?;
+        .map_err(|e| ConfigError::Parse {
+            path: path.clone(),
+            message: e.to_string(),
+        })?;
+    cfg.validate().map_err(|message| ConfigError::Parse {
+        path: path.clone(),
+        message,
+    })?;
     Ok(LoadedConfig {
         config: cfg,
         source_path: Some(path),
@@ -346,8 +354,13 @@ fn check_enum(
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
     /// TOML failed to parse or did not match the schema.
-    #[error("invalid config {0:?}: {1}")]
-    Parse(PathBuf, String),
+    #[error("invalid config {path:?}: {message}")]
+    Parse {
+        /// Path that failed to load.
+        path: PathBuf,
+        /// Description of the underlying parse / validation failure.
+        message: String,
+    },
 
     /// The user asked for a specific config file (via `--config` or
     /// `NETLS_CONFIG`) but the file does not exist. The XDG default falling
@@ -491,7 +504,9 @@ no_loopback = true
 "#,
         );
         let err = load(Some(f.path())).unwrap_err();
-        assert!(matches!(err, ConfigError::Parse(_, ref msg) if msg.contains("not a valid port")));
+        assert!(
+            matches!(err, ConfigError::Parse { ref message, .. } if message.contains("not a valid port"))
+        );
     }
 
     #[test]
@@ -700,13 +715,13 @@ typo_field = "oops"
 "#,
         );
         let err = load(Some(f.path())).unwrap_err();
-        assert!(matches!(err, ConfigError::Parse(_, _)));
+        assert!(matches!(err, ConfigError::Parse { .. }));
     }
 
     #[test]
     fn invalid_toml_syntax_is_error() {
         let f = write_toml("[defaults]\nproto = \n");
         let err = load(Some(f.path())).unwrap_err();
-        assert!(matches!(err, ConfigError::Parse(_, _)));
+        assert!(matches!(err, ConfigError::Parse { .. }));
     }
 }
