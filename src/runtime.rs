@@ -4,6 +4,7 @@ use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+#[cfg(target_os = "linux")]
 use crate::{Connection, Result};
 
 const SOCKET_TIMEOUT: Duration = Duration::from_secs(2);
