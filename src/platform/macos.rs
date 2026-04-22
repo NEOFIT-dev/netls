@@ -236,8 +236,8 @@ fn map_tcp_state(state: i32) -> Option<State> {
 
 // Ports are stored in network byte order (big-endian) in in_sockinfo.
 // in_addr_4in6_t memory layout:
-//   IPv4: [u32 pad; 3][u32 s_addr]  → s_addr at byte offset 12
-//   IPv6: [u8; 16]                  → bytes at offset 0
+//   IPv4: [u32 pad; 3][u32 s_addr]  -> s_addr at byte offset 12
+//   IPv6: [u8; 16]                  -> bytes at offset 0
 unsafe fn format_addr(ipv6: bool, addr_ptr: *const u8, port: i32) -> String {
     let port_u = u16::from_be(port as u16);
     let port_str = if port_u == 0 {

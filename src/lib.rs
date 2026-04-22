@@ -828,7 +828,7 @@ pub struct Summary {
 /// For each external connection that passes through a local proxy, return the
 /// list of originating process names (one or more).
 ///
-/// Example: firefox → sing-box → 8.8.8.8:443
+/// Example: firefox -> sing-box -> 8.8.8.8:443
 /// The key is for the sing-box connection, the value is `["firefox"]`.
 /// Multiple clients on the same local port produce multiple entries.
 pub fn resolve_proxy_origins(conns: &[Connection]) -> HashMap<ConnectionKey, Vec<String>> {
@@ -870,7 +870,7 @@ pub fn resolve_proxy_origins(conns: &[Connection]) -> HashMap<ConnectionKey, Vec
     result
 }
 
-/// Build a map: pid → ports the process listens on.
+/// Build a map: pid -> ports the process listens on.
 fn build_listen_ports_map(conns: &[Connection]) -> HashMap<u32, Vec<u16>> {
     let mut map: HashMap<u32, Vec<u16>> = HashMap::new();
     conns
@@ -881,7 +881,7 @@ fn build_listen_ports_map(conns: &[Connection]) -> HashMap<u32, Vec<u16>> {
     map
 }
 
-/// Build a map: listen_port → set of client process names connecting to it on loopback.
+/// Build a map: listen_port -> set of client process names connecting to it on loopback.
 fn build_port_clients_map(conns: &[Connection]) -> HashMap<u16, HashSet<String>> {
     let mut map: HashMap<u16, HashSet<String>> = HashMap::new();
     conns
@@ -1073,7 +1073,7 @@ fn is_ipv6_addr(addr: &str) -> bool {
 }
 
 /// Replace verbose IPv6 addresses with human-friendly aliases.
-/// `[::1]:port` → `localhost:port`, `[::]:port` / `[0:…:0]:port` → `*:port`
+/// `[::1]:port` -> `localhost:port`, `[::]:port` / `[0:…:0]:port` -> `*:port`
 #[must_use]
 pub fn compact_addr(addr: &str) -> String {
     if let Some(rest) = addr.strip_prefix("[::1]:") {
@@ -1600,7 +1600,7 @@ mod tests {
 
     #[test]
     fn resolve_proxy_origins_detects_chain() {
-        // firefox (pid=100) → 127.0.0.1:1080 (xray's listen port)
+        // firefox (pid=100) -> 127.0.0.1:1080 (xray's listen port)
         // xray (pid=200) listens on 1080 AND connects to 8.8.8.8:443
         let mut browser = make_conn(
             Proto::Tcp,

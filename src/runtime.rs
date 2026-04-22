@@ -140,7 +140,7 @@ fn container_host_pid(socket: &Path, container_id: &str) -> std::io::Result<u32>
 
 // ── Public (crate-internal) API ───────────────────────────────────────────────
 
-/// Build a map of container IP → compose service name (or container name as fallback).
+/// Build a map of container IP -> compose service name (or container name as fallback).
 /// Returns empty map on any error.
 #[must_use]
 pub(crate) fn container_ip_to_service() -> HashMap<String, String> {
@@ -150,7 +150,7 @@ pub(crate) fn container_ip_to_service() -> HashMap<String, String> {
         .collect()
 }
 
-/// Build a map of host published port → container name.
+/// Build a map of host published port -> container name.
 #[cfg(target_os = "macos")]
 #[must_use]
 pub(crate) fn container_published_ports() -> HashMap<u16, String> {

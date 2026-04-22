@@ -14,7 +14,7 @@ use crate::{Connection, Error, Proto, Result, State};
 /// Returns an [`enum@Error`] if `/proc/net/{tcp,tcp6,udp,udp6,unix}` cannot
 /// be read (procfs missing, permissions, etc.).
 pub fn get_connections() -> Result<Vec<Connection>> {
-    // Build inode → (pid, process_name) map by walking /proc/[pid]/fd/
+    // Build inode -> (pid, process_name) map by walking /proc/[pid]/fd/
     let pid_map = build_inode_pid_map()?;
 
     let mut conns = Vec::new();
@@ -141,7 +141,7 @@ fn parse_address(s: &str, ipv6: bool) -> Result<String> {
     })
 }
 
-/// 8 hex chars → Ipv4Addr.
+/// 8 hex chars -> Ipv4Addr.
 /// The kernel writes the address as a native-endian u32.
 fn parse_ipv4_hex(s: &str) -> Result<Ipv4Addr> {
     let n = u32::from_str_radix(s, 16).map_err(|_| Error::Parse {
@@ -152,7 +152,7 @@ fn parse_ipv4_hex(s: &str) -> Result<Ipv4Addr> {
     Ok(Ipv4Addr::from(n.to_ne_bytes()))
 }
 
-/// 32 hex chars → Ipv6Addr.
+/// 32 hex chars -> Ipv6Addr.
 /// Stored as four native-endian u32 words, each covering 4 bytes of the address.
 fn parse_ipv6_hex(s: &str) -> Result<Ipv6Addr> {
     if s.len() != 32 {
@@ -173,7 +173,7 @@ fn parse_ipv6_hex(s: &str) -> Result<Ipv6Addr> {
 
 // ── Queue parsing ─────────────────────────────────────────────────────────────
 
-/// Parse "tx_queue:rx_queue" hex field → (send_q, recv_q) bytes.
+/// Parse "tx_queue:rx_queue" hex field -> (send_q, recv_q) bytes.
 fn parse_queues(s: &str) -> (Option<u32>, Option<u32>) {
     let Some((tx, rx)) = s.split_once(':') else {
         return (None, None);
@@ -203,10 +203,10 @@ fn parse_state(hex: &str) -> Option<State> {
     }
 }
 
-// ── inode → PID map ───────────────────────────────────────────────────────────
+// ── inode -> PID map ───────────────────────────────────────────────────────────
 
 /// Walk `/proc/[pid]/fd/`, find symlinks of the form `socket:[inode]`,
-/// and build a map from inode → (pid, process_name).
+/// and build a map from inode -> (pid, process_name).
 ///
 /// Entries for processes we can't read (no permission, or process exited)
 /// are silently skipped - the connection will appear with pid=None.
@@ -334,7 +334,7 @@ fn parse_proc_net_unix(pid_map: &HashMap<u64, (u32, String)>) -> Result<Vec<Conn
 
 /// Read TCP/UDP connections from a container's network namespace.
 /// `ns_pid` is any host PID running inside the target container.
-/// `pid_map` is the global inode→(pid,name) map built from all host processes.
+/// `pid_map` is the global inode->(pid,name) map built from all host processes.
 /// `container_name` is set on each returned Connection.
 pub(crate) fn get_connections_in_namespace(
     ns_pid: u32,
@@ -390,7 +390,7 @@ mod tests {
 
     #[test]
     fn test_parse_address_zero_port() {
-        // remote of a LISTEN socket: 0.0.0.0:0 → 0.0.0.0:*
+        // remote of a LISTEN socket: 0.0.0.0:0 -> 0.0.0.0:*
         let addr = parse_address("00000000:0000", false).unwrap();
         assert_eq!(addr, "0.0.0.0:*");
     }

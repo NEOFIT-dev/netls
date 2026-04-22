@@ -86,7 +86,7 @@ netls --no-loopback --state established
 netls --queues        # RECV-Q / SEND-Q (TCP buffer fill in bytes)
 netls --service-names # annotate ports with service names (curated built-ins + /etc/services)
 netls --age           # approximate connection age (Linux only)
-netls --tree          # parent process chain: "bash ← tmux"
+netls --tree          # parent process chain: "bash <- tmux"
 netls --systemd       # owning systemd unit: "nginx.service" (Linux only)
 netls --fd            # open file-descriptor count/limit per process
 netls --cmdline       # full command line instead of short process name

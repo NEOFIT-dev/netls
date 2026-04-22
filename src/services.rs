@@ -5,9 +5,9 @@ static SERVICE_MAP: OnceLock<HashMap<u16, &'static str>> = OnceLock::new();
 static USER_OVERRIDES: OnceLock<HashMap<u16, String>> = OnceLock::new();
 static ETC_SERVICES: OnceLock<HashMap<u16, String>> = OnceLock::new();
 
-/// Curated, developer-friendly port → name pairs. Consulted before
+/// Curated, developer-friendly port -> name pairs. Consulted before
 /// `/etc/services` so common dev ports get nicer names than the IANA-assigned
-/// ones the system file would yield (e.g. `3000` → `dev-server` instead of
+/// ones the system file would yield (e.g. `3000` -> `dev-server` instead of
 /// the IANA `hbci`).
 const BUILTIN: &[(u16, &str)] = &[
     (20, "ftp-data"),
@@ -85,7 +85,7 @@ fn parse_etc_services(content: &str) -> HashMap<u16, String> {
     map
 }
 
-/// Install user-provided port → name overrides loaded from the config file's
+/// Install user-provided port -> name overrides loaded from the config file's
 /// `[ports]` section.
 ///
 /// **Set-once per process**: only the first call wins. Subsequent calls are
@@ -125,7 +125,7 @@ fn lookup_with(port: u16, extra: Option<&HashMap<u16, String>>) -> Option<String
 }
 
 /// Format an address with optional service name annotation.
-/// `"0.0.0.0:5432"` → `"0.0.0.0:5432 (postgres)"`.
+/// `"0.0.0.0:5432"` -> `"0.0.0.0:5432 (postgres)"`.
 ///
 /// Consults user overrides registered via [`set_user_overrides`] before the
 /// built-in service map.

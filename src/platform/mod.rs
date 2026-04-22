@@ -1,7 +1,7 @@
 use crate::{Connection, Result};
 
 /// Linux connection collection via `/proc/net/{tcp,udp,unix}` plus
-/// `/proc/<pid>/fd/` for inode → PID resolution.
+/// `/proc/<pid>/fd/` for inode -> PID resolution.
 #[cfg(target_os = "linux")]
 pub mod linux;
 #[cfg(target_os = "macos")]

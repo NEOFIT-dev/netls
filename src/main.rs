@@ -113,7 +113,7 @@ struct Cli {
     #[arg(long)]
     cmdline: bool,
 
-    /// Annotate port numbers with service names (e.g. :5432 → :5432 (postgres))
+    /// Annotate port numbers with service names (e.g. :5432 -> :5432 (postgres))
     #[arg(long)]
     service_names: bool,
 
@@ -570,7 +570,7 @@ fn cmd_diff(path: &std::path::Path, filter: &Filter) -> Result<()> {
         } else {
             // both low ports (server↔server) - include both + process
             let p = c.process.as_deref().unwrap_or("-").to_string();
-            (format!("{} → {}", c.local, stable_addr(&c.remote)), p)
+            (format!("{} -> {}", c.local, stable_addr(&c.remote)), p)
         };
         format!("{}|{}|{}", c.proto, stable, proc)
     };
@@ -590,7 +590,7 @@ fn print_diff_grouped(
         return;
     }
 
-    // group key → (count, representative connection)
+    // group key -> (count, representative connection)
     let mut groups: HashMap<String, (usize, &netls::Connection)> = HashMap::new();
     for c in conns {
         let k = key_fn(c);
@@ -615,7 +615,7 @@ fn print_diff_grouped(
         };
         if *count == 1 {
             println!(
-                "{sign}    1x  {} {} → {} {}  ({})",
+                "{sign}    1x  {} {} -> {} {}  ({})",
                 c.proto,
                 netls::compact_addr(&c.local),
                 netls::compact_addr(&c.remote),

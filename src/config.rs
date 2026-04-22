@@ -10,7 +10,7 @@
 //!   was given on the command line
 //! - `[profiles.<name>]`: named overlays activated by `--profile <name>`, applied
 //!   on top of `[defaults]`
-//! - `[ports]`: extends the built-in port → service-name map used by `--service-names`
+//! - `[ports]`: extends the built-in port -> service-name map used by `--service-names`
 
 use figment::{
     Figment,
@@ -31,7 +31,7 @@ pub struct Config {
     #[serde(default)]
     pub defaults: Defaults,
 
-    /// Extension of the built-in `port → service-name` map. Keys are TOML
+    /// Extension of the built-in `port -> service-name` map. Keys are TOML
     /// strings (TOML does not allow integer keys in tables) but must parse
     /// to `u16` (validated by [`Config::validate`]).
     #[serde(default)]
