@@ -198,7 +198,7 @@ fn build_base(
     };
     // Raw sockets encode the IP protocol number in the "port" position, so
     // port->service lookups produce nonsense (e.g. proto=58 -> "xns-mail").
-    let annotate = service_names && c.proto != Proto::Raw;
+    let annotate = service_names && c.proto != Proto::Raw && c.proto != Proto::Icmp;
     let fmt_remote = |addr: &str| {
         if annotate {
             services::annotate_addr(addr)

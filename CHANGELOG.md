@@ -44,10 +44,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   daemon. Both the rootful (`/run/podman/podman.sock`) and rootless
   (`$XDG_RUNTIME_DIR/podman/podman.sock`) sockets are probed; results
   from Docker and Podman are merged.
-- `--proto raw` lists raw IP sockets (ICMP, IGMP, custom IP protocols)
-  used by `ping`, `traceroute`, and eBPF tools. Linux reads
-  `/proc/net/raw*`, macOS surfaces `SOCK_RAW` via libproc.
-- `Proto::Raw` variant and `Summary::raw_total` field.
+- `--proto raw` lists raw IP sockets (`SOCK_RAW`), used by `CAP_NET_RAW`
+  tools like `tcpdump`, routing daemons (bird, FRR), and nmap. Linux
+  reads `/proc/net/raw*`; macOS surfaces `SOCK_RAW` via libproc.
+- `--proto icmp` lists ICMP datagram sockets (`SOCK_DGRAM` +
+  `IPPROTO_ICMP`/`IPPROTO_ICMPV6`), used by `blackbox_exporter`,
+  Kubernetes probes, Go `net/icmp` monitors, and any tool that does
+  unprivileged ICMP without `CAP_NET_RAW`. Linux reads `/proc/net/icmp*`;
+  macOS distinguishes ICMP datagrams from UDP by inspecting `soi_protocol`
+  (previously misclassified as UDP).
+- `Proto::Raw`, `Proto::Icmp` variants and `Summary::raw_total`,
+  `Summary::icmp_total` fields.
 - `FromStr` impls for `Proto`, `State`, `SortKey`.
 - `ParseEnumError` returned by those `FromStr` impls.
 - `docker_proxy_service` replaces `resolve_docker_name` and returns

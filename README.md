@@ -62,7 +62,9 @@ netls --port 8080               # filter by port
 netls --pid 1234                # filter by PID
 netls --process nginx           # filter by process name (case-insensitive substring)
 netls --state established       # filter by state
-netls --proto tcp               # filter by protocol: tcp, udp, unix, raw
+netls --proto tcp               # filter by protocol: tcp, udp, unix, icmp, raw
+netls --proto icmp              # ICMP datagram sockets: blackbox_exporter, k8s probes, Go net/icmp monitors
+netls --proto raw               # raw IP sockets (SOCK_RAW): tcpdump, routing daemons (bird, FRR), nmap
 netls --ipv4                    # show only IPv4 connections
 netls --ipv6                    # show only IPv6 connections
 netls --no-loopback             # hide loopback connections (127.x and ::1)

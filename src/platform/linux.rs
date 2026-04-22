@@ -25,11 +25,13 @@ pub fn get_connections() -> Result<Vec<Connection>> {
         ("/proc/net/udp6", Proto::Udp, true),
         ("/proc/net/raw", Proto::Raw, false),
         ("/proc/net/raw6", Proto::Raw, true),
+        ("/proc/net/icmp", Proto::Icmp, false),
+        ("/proc/net/icmp6", Proto::Icmp, true),
     ] {
         let mut batch = parse_proc_net(path, proto, ipv6, &pid_map)?;
-        // Raw sockets don't follow the TCP state machine; the `st` field is
-        // a synthetic placeholder. Clear it so the library reports None.
-        if proto == Proto::Raw {
+        // Raw and ICMP datagram sockets don't follow the TCP state machine;
+        // the `st` field is a synthetic placeholder. Clear it.
+        if proto == Proto::Raw || proto == Proto::Icmp {
             for c in &mut batch {
                 c.state = None;
             }

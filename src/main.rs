@@ -77,7 +77,7 @@ struct Cli {
     #[arg(long)]
     state: Option<String>,
 
-    /// Filter by protocol (tcp, udp)
+    /// Filter by protocol (tcp, udp, unix, raw, icmp)
     #[arg(long)]
     proto: Option<String>,
 

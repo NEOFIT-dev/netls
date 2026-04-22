@@ -8,6 +8,12 @@ pub fn print(conns: &[Connection]) {
         s.tcp_total, s.tcp_established, s.tcp_listen, s.tcp_timewait, s.tcp_closewait, s.tcp_other
     );
     println!("UDP:  {}", s.udp_total);
+    if s.icmp_total > 0 {
+        println!("ICMP: {}", s.icmp_total);
+    }
+    if s.raw_total > 0 {
+        println!("Raw:  {}", s.raw_total);
+    }
     if s.unix_total > 0 {
         println!("Unix: {}", s.unix_total);
     }

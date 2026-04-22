@@ -40,7 +40,7 @@ pub const VALID_STATES: &[&str] = &[
 ];
 
 /// Protocols accepted by `--proto` and the `proto` config field.
-pub const VALID_PROTOS: &[&str] = &["tcp", "udp", "unix", "raw"];
+pub const VALID_PROTOS: &[&str] = &["tcp", "udp", "unix", "raw", "icmp"];
 
 /// Columns accepted by `--sort` and the `sort` config field.
 pub const VALID_SORT: &[&str] = &[
@@ -317,9 +317,15 @@ pub enum Proto {
     Tcp,
     Udp,
     Unix,
-    /// Raw IP socket (ICMP, IGMP, custom protocols - `ping`, `traceroute`,
-    /// eBPF / security tools). The `state` field is always `None`.
+    /// Raw IP socket (`SOCK_RAW`). Used by `CAP_NET_RAW` tools like
+    /// `tcpdump`, routing daemons (bird, FRR), and nmap. The `state`
+    /// field is always `None`.
     Raw,
+    /// ICMP datagram socket (`SOCK_DGRAM` + `IPPROTO_ICMP` or `IPPROTO_ICMPV6`).
+    /// Used by `blackbox_exporter`, Kubernetes probes, Go `net/icmp`
+    /// monitors, and any tool that does unprivileged ICMP without
+    /// `CAP_NET_RAW`. The `state` field is always `None`.
+    Icmp,
 }
 
 impl fmt::Display for Proto {
@@ -329,6 +335,7 @@ impl fmt::Display for Proto {
             Proto::Udp => write!(f, "udp"),
             Proto::Unix => write!(f, "unix"),
             Proto::Raw => write!(f, "raw"),
+            Proto::Icmp => write!(f, "icmp"),
         }
     }
 }
@@ -341,6 +348,7 @@ impl std::str::FromStr for Proto {
             "udp" => Ok(Proto::Udp),
             "unix" => Ok(Proto::Unix),
             "raw" => Ok(Proto::Raw),
+            "icmp" => Ok(Proto::Icmp),
             _ => Err(ParseEnumError {
                 kind: "proto",
                 value: s.to_string(),
@@ -793,6 +801,7 @@ pub fn summary(conns: &[Connection]) -> Summary {
             Proto::Udp => s.udp_total += 1,
             Proto::Unix => s.unix_total += 1,
             Proto::Raw => s.raw_total += 1,
+            Proto::Icmp => s.icmp_total += 1,
         }
     }
     s
@@ -813,6 +822,7 @@ pub struct Summary {
     pub udp_total: usize,
     pub unix_total: usize,
     pub raw_total: usize,
+    pub icmp_total: usize,
 }
 
 /// For each external connection that passes through a local proxy, return the
@@ -1230,10 +1240,33 @@ mod tests {
         assert_eq!("tcp".parse::<Proto>().unwrap(), Proto::Tcp);
         assert_eq!("TCP".parse::<Proto>().unwrap(), Proto::Tcp);
         assert_eq!("Udp".parse::<Proto>().unwrap(), Proto::Udp);
+        assert_eq!("raw".parse::<Proto>().unwrap(), Proto::Raw);
+        assert_eq!("ICMP".parse::<Proto>().unwrap(), Proto::Icmp);
         let err = "sctp".parse::<Proto>().unwrap_err();
         assert_eq!(err.kind, "proto");
         assert_eq!(err.value, "sctp");
         assert!(err.allowed.contains(&"tcp"));
+        assert!(err.allowed.contains(&"icmp"));
+    }
+
+    #[test]
+    fn summary_counts_icmp_and_raw_separately() {
+        let conns = vec![
+            make_conn(
+                Proto::Tcp,
+                "0.0.0.0:80",
+                "0.0.0.0:*",
+                Some(State::Listen),
+                None,
+            ),
+            make_conn(Proto::Icmp, "*:49152", "*:*", None, Some(100)),
+            make_conn(Proto::Icmp, "*:49153", "*:*", None, Some(200)),
+            make_conn(Proto::Raw, "*:58", "*:*", None, None),
+        ];
+        let s = summary(&conns);
+        assert_eq!(s.tcp_total, 1);
+        assert_eq!(s.icmp_total, 2);
+        assert_eq!(s.raw_total, 1);
     }
 
     #[test]

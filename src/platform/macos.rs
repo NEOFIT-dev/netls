@@ -110,18 +110,19 @@ fn parse_socket(info: SocketInfo, pid: u32, name: Option<&str>) -> Option<Connec
         }
     } else if si.soi_type == libc::SOCK_DGRAM {
         unsafe {
-            let udp = &si.soi_proto.pri_in;
-            let local = format_addr(
-                ipv6,
-                &udp.insi_laddr as *const _ as *const u8,
-                udp.insi_lport,
-            );
-            let remote = format_addr(
-                ipv6,
-                &udp.insi_faddr as *const _ as *const u8,
-                udp.insi_fport,
-            );
-            (Proto::Udp, local, remote, None)
+            let dg = &si.soi_proto.pri_in;
+            let local = format_addr(ipv6, &dg.insi_laddr as *const _ as *const u8, dg.insi_lport);
+            let remote = format_addr(ipv6, &dg.insi_faddr as *const _ as *const u8, dg.insi_fport);
+            // Unprivileged ICMP uses SOCK_DGRAM + IPPROTO_ICMP(V6); keep it
+            // distinct from ordinary UDP so `--proto icmp` works.
+            let proto = if si.soi_protocol == libc::IPPROTO_ICMP
+                || si.soi_protocol == libc::IPPROTO_ICMPV6
+            {
+                Proto::Icmp
+            } else {
+                Proto::Udp
+            };
+            (proto, local, remote, None)
         }
     } else if si.soi_type == libc::SOCK_RAW {
         unsafe {
