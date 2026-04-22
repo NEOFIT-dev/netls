@@ -26,13 +26,13 @@
 ## Quick look
 
 **Container visibility** - which container owns each connection:
-![netls --containers](assets/1.png)
+![netls --containers](https://raw.githubusercontent.com/NEOFIT-dev/netls/main/assets/containers.png)
 
 **Process tree** - full parent chain per connection:
-![netls --tree](assets/2.png)
+![netls --tree](https://raw.githubusercontent.com/NEOFIT-dev/netls/main/assets/tree.png)
 
 **Default output:**
-![netls default output](assets/3.png)
+![netls default output](https://raw.githubusercontent.com/NEOFIT-dev/netls/main/assets/default.png)
 
 
 ## Installation
