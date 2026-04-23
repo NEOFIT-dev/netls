@@ -1,6 +1,6 @@
 [package]
 name = "netls"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2024"
 rust-version = "1.88"
 description = "Network connections viewer for daily use and automation - container visibility, JSON/CSV output, process tree, live watch mode"
