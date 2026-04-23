@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Negation flags for every boolean option configurable via `[defaults]` or
+  a profile: `--no-json`, `--no-pretty`, `--no-csv`, `--no-ipv4`,
+  `--no-ipv6`, `--loopback` (antonym of `--no-loopback`), `--no-listen`,
+  `--no-all`, `--no-queues`, `--no-service-names`, `--no-age`, `--no-tree`,
+  `--no-systemd`, `--no-fd`, `--no-cmdline`, `--no-containers`,
+  `--no-resolve-dns`, `--no-resolve-proxy`. Lets the user override a `true`
+  value on the command line without editing the config. If both `--X` and
+  `--no-X` appear on the same command line, the last one wins. Hidden from
+  `--help` to keep it readable. Closes the "known limitation" noted in
+  the 1.0.0 README.
+- `--no-service-names` also disables the `[ports]` auto-enable.
+
 ## [1.0.0] - 2026-04-22
 
 ### Changed

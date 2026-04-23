@@ -261,10 +261,22 @@ Notes:
   `service_names = false` in `[defaults]` to opt out.
 - `NETLS_CONFIG` expands a leading `~` / `~/` to your home directory.
 
-Known limitation: a boolean flag set to `true` in `[defaults]` or an active
-profile cannot be turned back off from the command line (there are no `--no-X`
-negation flags yet). To opt out, remove the field from the config or switch
-profiles. Negation flags are planned.
+### Negation flags
+
+Every boolean flag that can be set from `[defaults]` or a profile has a
+`--no-X` counterpart to turn it back off on the command line. For example:
+
+```bash
+netls --profile dev --no-listen         # dev profile sets listen = true; cancel it
+netls --profile dev --loopback          # dev profile sets no_loopback = true; cancel it
+netls --no-service-names                # overrides the [ports] auto-enable
+```
+
+Negation flags are hidden from `--help` to keep it readable. If `--X` and
+`--no-X` appear on the same command line, the last one wins.
+
+The `--no-loopback` flag is itself already negative; its antonym is
+`--loopback`.
 
 ## As a library
 

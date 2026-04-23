@@ -22,16 +22,28 @@ use std::process;
 )]
 struct Cli {
     /// Output as JSON (one object per line)
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_json")]
     json: bool,
 
+    #[arg(long = "no-json", overrides_with = "json", hide = true)]
+    #[allow(dead_code)]
+    no_json: bool,
+
     /// Pretty-print JSON (use with --json)
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_pretty")]
     pretty: bool,
 
+    #[arg(long = "no-pretty", overrides_with = "pretty", hide = true)]
+    #[allow(dead_code)]
+    no_pretty: bool,
+
     /// Output as CSV
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_csv")]
     csv: bool,
+
+    #[arg(long = "no-csv", overrides_with = "csv", hide = true)]
+    #[allow(dead_code)]
+    no_csv: bool,
 
     /// Refresh every N seconds with diff (default: 2)
     #[arg(long, value_name = "N", default_missing_value = "2", num_args = 0..=1)]
@@ -42,8 +54,12 @@ struct Cli {
     tui: bool,
 
     /// Show only listening sockets (shorthand for --state listen)
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_listen")]
     listen: bool,
+
+    #[arg(long = "no-listen", overrides_with = "listen", hide = true)]
+    #[allow(dead_code)]
+    no_listen: bool,
 
     /// Show a summary of connections by protocol and state
     #[arg(long)]
@@ -82,44 +98,93 @@ struct Cli {
     proto: Option<String>,
 
     /// Show only IPv4 connections
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_ipv4")]
     ipv4: bool,
 
+    #[arg(long = "no-ipv4", overrides_with = "ipv4", hide = true)]
+    #[allow(dead_code)]
+    no_ipv4: bool,
+
     /// Show only IPv6 connections
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_ipv6")]
     ipv6: bool,
 
+    #[arg(long = "no-ipv6", overrides_with = "ipv6", hide = true)]
+    #[allow(dead_code)]
+    no_ipv6: bool,
+
     /// Hide loopback connections (127.x.x.x and ::1)
-    #[arg(long)]
+    #[arg(long, overrides_with = "loopback")]
     no_loopback: bool,
 
+    // Antonym of --no-loopback (positive form is already negative).
+    #[arg(long = "loopback", overrides_with = "no_loopback", hide = true)]
+    #[allow(dead_code)]
+    loopback: bool,
+
     /// Show Recv-Q and Send-Q columns (socket buffer sizes in bytes)
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_queues")]
     queues: bool,
 
+    #[arg(long = "no-queues", overrides_with = "queues", hide = true)]
+    #[allow(dead_code)]
+    no_queues: bool,
+
     /// Resolve remote IP addresses to hostnames (may be slow)
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_resolve_dns")]
     resolve_dns: bool,
 
+    #[arg(long = "no-resolve-dns", overrides_with = "resolve_dns", hide = true)]
+    #[allow(dead_code)]
+    no_resolve_dns: bool,
+
     /// Resolve proxy chains: show the real originating process for proxied connections
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_resolve_proxy")]
     resolve_proxy: bool,
 
+    #[arg(
+        long = "no-resolve-proxy",
+        overrides_with = "resolve_proxy",
+        hide = true
+    )]
+    #[allow(dead_code)]
+    no_resolve_proxy: bool,
+
     /// Show all connections including Unix domain sockets (default: TCP and UDP only)
-    #[arg(long, short = 'a')]
+    #[arg(long, short = 'a', overrides_with = "no_all")]
     all: bool,
 
+    #[arg(long = "no-all", overrides_with = "all", hide = true)]
+    #[allow(dead_code)]
+    no_all: bool,
+
     /// Show full command line instead of short process name
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_cmdline")]
     cmdline: bool,
 
+    #[arg(long = "no-cmdline", overrides_with = "cmdline", hide = true)]
+    #[allow(dead_code)]
+    no_cmdline: bool,
+
     /// Annotate port numbers with service names (e.g. :5432 -> :5432 (postgres))
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_service_names")]
     service_names: bool,
 
+    #[arg(
+        long = "no-service-names",
+        overrides_with = "service_names",
+        hide = true
+    )]
+    #[allow(dead_code)]
+    no_service_names: bool,
+
     /// Include connections from inside Docker containers (requires root)
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_containers")]
     containers: bool,
+
+    #[arg(long = "no-containers", overrides_with = "containers", hide = true)]
+    #[allow(dead_code)]
+    no_containers: bool,
 
     /// Check if a port is free. Exits 0 if free, 1 if in use
     #[arg(long, value_name = "PORT")]
@@ -134,16 +199,28 @@ struct Cli {
     force: bool,
 
     /// Show approximate connection age (AGE column)
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_age")]
     age: bool,
 
+    #[arg(long = "no-age", overrides_with = "age", hide = true)]
+    #[allow(dead_code)]
+    no_age: bool,
+
     /// Show parent process chain (PARENT CHAIN column): "bash <- tmux"
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_tree")]
     tree: bool,
 
+    #[arg(long = "no-tree", overrides_with = "tree", hide = true)]
+    #[allow(dead_code)]
+    no_tree: bool,
+
     /// Show systemd unit name (UNIT column): "nginx.service"
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_systemd")]
     systemd: bool,
+
+    #[arg(long = "no-systemd", overrides_with = "systemd", hide = true)]
+    #[allow(dead_code)]
+    no_systemd: bool,
 
     /// Warn if TIME_WAIT count exceeds N (use with --summary, default threshold: 500)
     #[arg(long, value_name = "N", default_missing_value = "500", num_args = 0..=1)]
@@ -166,8 +243,12 @@ struct Cli {
     diff: Option<std::path::PathBuf>,
 
     /// Show fd usage per process (FD column), warn when near limit
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_fd")]
     fd: bool,
+
+    #[arg(long = "no-fd", overrides_with = "fd", hide = true)]
+    #[allow(dead_code)]
+    no_fd: bool,
 
     /// Group connections by field: remote-ip, process, port, proto
     #[arg(long, value_name = "FIELD")]
@@ -216,35 +297,36 @@ fn apply_config(cli: &mut Cli, eff: &config::Defaults, matches: &clap::ArgMatche
     apply_opt!(sort);
     apply_opt!(group_by);
 
-    // bool fields: clap defaults them to `false`; config overrides only when
-    // the CLI did not set the flag explicitly.
+    // Any CLI flag (positive or negation) wins over the config; otherwise use config.
     macro_rules! apply_bool {
-        ($field:ident) => {
-            if !from_cli(stringify!($field)) {
+        ($field:ident, $neg:literal) => {
+            if from_cli($neg) {
+                cli.$field = false;
+            } else if !from_cli(stringify!($field)) {
                 if let Some(v) = eff.$field {
                     cli.$field = v;
                 }
             }
         };
     }
-    apply_bool!(json);
-    apply_bool!(pretty);
-    apply_bool!(csv);
-    apply_bool!(ipv4);
-    apply_bool!(ipv6);
-    apply_bool!(no_loopback);
-    apply_bool!(listen);
-    apply_bool!(all);
-    apply_bool!(queues);
-    apply_bool!(service_names);
-    apply_bool!(age);
-    apply_bool!(tree);
-    apply_bool!(systemd);
-    apply_bool!(fd);
-    apply_bool!(cmdline);
-    apply_bool!(containers);
-    apply_bool!(resolve_dns);
-    apply_bool!(resolve_proxy);
+    apply_bool!(json, "no_json");
+    apply_bool!(pretty, "no_pretty");
+    apply_bool!(csv, "no_csv");
+    apply_bool!(ipv4, "no_ipv4");
+    apply_bool!(ipv6, "no_ipv6");
+    apply_bool!(no_loopback, "loopback");
+    apply_bool!(listen, "no_listen");
+    apply_bool!(all, "no_all");
+    apply_bool!(queues, "no_queues");
+    apply_bool!(service_names, "no_service_names");
+    apply_bool!(age, "no_age");
+    apply_bool!(tree, "no_tree");
+    apply_bool!(systemd, "no_systemd");
+    apply_bool!(fd, "no_fd");
+    apply_bool!(cmdline, "no_cmdline");
+    apply_bool!(containers, "no_containers");
+    apply_bool!(resolve_dns, "no_resolve_dns");
+    apply_bool!(resolve_proxy, "no_resolve_proxy");
 }
 
 /// Starter config template written by `--init-config`. `service_names = true`
@@ -711,8 +793,9 @@ fn main() -> Result<()> {
     let loaded = config::load(cli.config.as_deref())?;
     let effective = loaded.config.effective(cli.profile.as_deref())?;
     let pretty_from_cli = matches.value_source("pretty") == Some(ValueSource::CommandLine);
-    let service_names_from_cli =
-        matches.value_source("service_names") == Some(ValueSource::CommandLine);
+    let service_names_from_cli = matches.value_source("service_names")
+        == Some(ValueSource::CommandLine)
+        || matches.value_source("no_service_names") == Some(ValueSource::CommandLine);
     let service_names_set_in_config = effective.service_names.is_some();
     apply_config(&mut cli, &effective, &matches);
 
@@ -1014,6 +1097,87 @@ mod tests {
         assert!(cli.proto.is_none());
         assert!(!cli.no_loopback);
         assert!(!cli.json);
+    }
+
+    #[test]
+    fn negation_flag_beats_config_default() {
+        let mut defaults = Defaults::default();
+        defaults.listen = Some(true);
+        let cli = run(&["netls", "--no-listen"], defaults);
+        assert!(!cli.listen);
+    }
+
+    #[test]
+    fn last_form_wins_between_positive_and_negation() {
+        let mut defaults = Defaults::default();
+        defaults.listen = Some(false);
+        let cli = run(&["netls", "--listen", "--no-listen"], defaults);
+        assert!(!cli.listen);
+
+        let cli = run(&["netls", "--no-listen", "--listen"], Defaults::default());
+        assert!(cli.listen);
+    }
+
+    #[test]
+    fn negation_flag_without_config_is_noop() {
+        let cli = run(&["netls", "--no-listen"], Defaults::default());
+        assert!(!cli.listen);
+    }
+
+    #[test]
+    fn loopback_reenables_no_loopback_from_config() {
+        let mut defaults = Defaults::default();
+        defaults.no_loopback = Some(true);
+        let cli = run(&["netls", "--loopback"], defaults);
+        assert!(!cli.no_loopback);
+    }
+
+    #[test]
+    fn negation_flag_covers_all_booleans() {
+        type Reader = fn(&Cli) -> bool;
+        let cases: &[(&str, Reader)] = &[
+            ("--no-json", |c| c.json),
+            ("--no-pretty", |c| c.pretty),
+            ("--no-csv", |c| c.csv),
+            ("--no-ipv4", |c| c.ipv4),
+            ("--no-ipv6", |c| c.ipv6),
+            ("--loopback", |c| c.no_loopback),
+            ("--no-listen", |c| c.listen),
+            ("--no-all", |c| c.all),
+            ("--no-queues", |c| c.queues),
+            ("--no-service-names", |c| c.service_names),
+            ("--no-age", |c| c.age),
+            ("--no-tree", |c| c.tree),
+            ("--no-systemd", |c| c.systemd),
+            ("--no-fd", |c| c.fd),
+            ("--no-cmdline", |c| c.cmdline),
+            ("--no-containers", |c| c.containers),
+            ("--no-resolve-dns", |c| c.resolve_dns),
+            ("--no-resolve-proxy", |c| c.resolve_proxy),
+        ];
+        for (flag, read) in cases {
+            let mut defaults = Defaults::default();
+            defaults.json = Some(true);
+            defaults.pretty = Some(true);
+            defaults.csv = Some(true);
+            defaults.ipv4 = Some(true);
+            defaults.ipv6 = Some(true);
+            defaults.no_loopback = Some(true);
+            defaults.listen = Some(true);
+            defaults.all = Some(true);
+            defaults.queues = Some(true);
+            defaults.service_names = Some(true);
+            defaults.age = Some(true);
+            defaults.tree = Some(true);
+            defaults.systemd = Some(true);
+            defaults.fd = Some(true);
+            defaults.cmdline = Some(true);
+            defaults.containers = Some(true);
+            defaults.resolve_dns = Some(true);
+            defaults.resolve_proxy = Some(true);
+            let cli = run(&["netls", flag], defaults);
+            assert!(!read(&cli), "{flag} did not turn field off");
+        }
     }
 
     #[test]
